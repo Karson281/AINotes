@@ -130,17 +130,19 @@ async def cmd_start(u, c):
     save_cid(u.effective_chat.id)
     gs = google.status() if google else "Google not installed"
     lines = [
-        "Proma Stock Bot v2",
+        "🤖 Proma Stock Bot v2 — 24/7 VPS",
         "",
-        "Stock:",
-        "/stocks",
-        "/stocks add TICKER",
-        "/stocks remove TICKER",
-        "/analyze",
-        "分析 0941.HK",
+        "📈 股票分析",
+        "/stocks — 睇 watchlist",
+        "/stocks add TICKER — 加入",
+        "/stocks remove TICKER — 移除",
+        "/analyze — 分析 watchlist 全部",
+        "分析 0941.HK — 分析單隻",
         "",
-        "Google:",
-        "/gmail /calendar /sheets /docs /drive /maps /mystatus",
+        "⏰ 每日 18:00 自動分析（HKT）",
+        "",
+        "🔌 Google 服務",
+        "/gmail /calendar /docs /drive /maps /mystatus",
         "",
         gs,
     ]
@@ -150,9 +152,9 @@ async def cmd_stocks(u, c):
     wl = load_wl()
     args = c.args
     if not args:
-        msg = [f"Watchlist ({len(wl)}):"]
+        msg = [f"📋 Watchlist ({len(wl)} 隻):"]
         for s in wl:
-            msg.append(f"  {s}")
+            msg.append(f"  • {s}")
         await u.message.reply_text("\n".join(msg))
         return
     cmd = args[0].lower()
@@ -161,44 +163,45 @@ async def cmd_stocks(u, c):
         if t not in wl:
             wl.append(t)
             save_wl(wl)
-            await u.message.reply_text(f"Added {t}")
+            await u.message.reply_text(f"✅ 已加入 {t} 至 watchlist")
         else:
-            await u.message.reply_text(f"{t} already in list")
+            await u.message.reply_text(f"⚠️ {t} 已在 watchlist 中")
     elif cmd == "remove" and len(args) >= 2:
         t = args[1].upper()
         if t in wl:
             wl.remove(t)
             save_wl(wl)
-            await u.message.reply_text(f"Removed {t}")
+            await u.message.reply_text(f"✅ 已從 watchlist 移除 {t}")
         else:
-            await u.message.reply_text(f"{t} not found")
+            await u.message.reply_text(f"⚠️ {t} 唔喺 watchlist 入面")
 
 async def cmd_analyze(u, c):
     wl = load_wl()
     if not wl:
         await u.message.reply_text("Watchlist empty")
         return
-    msg = await u.message.reply_text(f"Analyzing {len(wl)} stocks...")
+    await msg.edit_text(f"🔄 開始批量分析 {len(wl)} 隻股票...\n（每隻約需 30-60 秒）")
     results = []
     for i, t in enumerate(wl):
         try:
-            await msg.edit_text(f"({i+1}/{len(wl)}) {t}")
+            await msg.edit_text(f"🔄 分析中 ({i+1}/{len(wl)}): {t}")
             d = await analyze(t)
-            await write_obs(d)
+            op = await write_obs(d)
             results.append(d)
-            tk = "YES" if d["rating"] in (BUY, ADD) else "no"
-            await u.message.reply_text(f"{tk} {d['ticker']} - {d['rating']}")
+            tk = "✅" if d["rating"] in (BUY, ADD) else "◽"
+            sync_info = f" | Obsidian: {op}" if op else ""
+            await u.message.reply_text(f"{tk} {d['ticker']} — {d['rating']}{sync_info}")
         except Exception as e:
-            await u.message.reply_text(f"ERR {t}: {str(e)[:100]}")
+            await u.message.reply_text(f"❌ {t} 分析失敗：{str(e)[:150]}")
     buy = [r for r in results if r.get("rating") in (BUY, ADD)]
     wat = [r for r in results if r.get("rating") == WATCH]
     sel = [r for r in results if r.get("rating") in (SELL, CLEAR)]
     neu = [r for r in results if r.get("rating") == NEUTRAL]
-    parts = [f"Done {len(results)}/{len(wl)}", ""]
-    parts.append(f"Buy({len(buy)}): {','.join(r['ticker'] for r in buy) or 'none'}")
-    parts.append(f"Watch({len(wat)}): {','.join(r['ticker'] for r in wat) or 'none'}")
-    parts.append(f"Sell({len(sel)}): {','.join(r['ticker'] for r in sel) or 'none'}")
-    parts.append(f"Neutral({len(neu)}): {','.join(r['ticker'] for r in neu) or 'none'}")
+    parts = [f"📊 批量分析完成 ({len(results)}/{len(wl)})", ""]
+    parts.append(f"🟢 建倉/加倉 ({len(buy)}): {','.join(r['ticker'] for r in buy) or '無'}")
+    parts.append(f"🟡 密切觀察 ({len(wat)}): {','.join(r['ticker'] for r in wat) or '無'}")
+    parts.append(f"🔴 減倉/清倉 ({len(sel)}): {','.join(r['ticker'] for r in sel) or '無'}")
+    parts.append(f"⚪ 觀望 ({len(neu)}): {','.join(r['ticker'] for r in neu) or '無'}")
     await u.message.reply_text("\n".join(parts))
 
 async def daily_job(c):
@@ -217,9 +220,16 @@ async def daily_job(c):
             results.append({"ticker": t, "rating": "ERR", "content": str(e)[:100]})
     buy = [r for r in results if r.get("rating") in (BUY, ADD)]
     wat = [r for r in results if r.get("rating") == WATCH]
-    lines = ["Daily 18:00 HKT", ""]
-    lines.append(f"Buy({len(buy)}): {','.join(r['ticker'] for r in buy) or 'none'}")
-    lines.append(f"Watch({len(wat)}): {','.join(r['ticker'] for r in wat) or 'none'}")
+    sel = [r for r in results if r.get("rating") in (SELL, CLEAR)]
+    neu = [r for r in results if r.get("rating") == NEUTRAL]
+    lines = ["📊 每日分析完成 (18:00 HKT)", ""]
+    lines.append(f"🟢 建倉/加倉 ({len(buy)}): {','.join(r['ticker'] for r in buy) or '無'}")
+    lines.append(f"🟡 密切觀察 ({len(wat)}): {','.join(r['ticker'] for r in wat) or '無'}")
+    lines.append(f"🔴 減倉/清倉 ({len(sel)}): {','.join(r['ticker'] for r in sel) or '無'}")
+    lines.append(f"⚪ 觀望 ({len(neu)}): {','.join(r['ticker'] for r in neu) or '無'}")
+    if buy:
+        picks = "\n".join([f"✅ {r['ticker']} — {r['rating']}" for r in buy[:5]])
+        lines.append(f"\n🌟 重點關注\n{picks}")
     for cid in cids:
         try:
             await c.bot.send_message(chat_id=cid, text="\n".join(lines))
@@ -229,7 +239,7 @@ async def daily_job(c):
 
 async def cmd_gmail(u, c):
     if not google:
-        await u.message.reply_text("Google not installed")
+        await u.message.reply_text("❌ Google 模組未安裝")
         return
     args = c.args
     if args and args[0].lower() == "read" and len(args) >= 2:
@@ -239,21 +249,21 @@ async def cmd_gmail(u, c):
             if 0 <= idx < len(emails):
                 body = google.gmail_read(emails[idx]["id"])
                 msg = (
-                    f"{emails[idx]['subject']}\n"
+                    f"📧 {emails[idx]['subject']}\n"
                     f"From: {emails[idx]['from']}\n\n"
                     f"{body or '(empty)'}"
                 )
                 await u.message.reply_text(msg)
             else:
-                await u.message.reply_text("Invalid number")
+                await u.message.reply_text("❌ 無效序號")
         except Exception:
-            await u.message.reply_text("Usage: /gmail read N")
+            await u.message.reply_text("用法: /gmail read N")
         return
     emails = google.gmail_unread(8)
     if not emails:
-        await u.message.reply_text("No unread")
+        await u.message.reply_text("📧 無未讀郵件")
         return
-    lines = [f"Unread ({len(emails)})"]
+    lines = [f"📧 未讀郵件 ({len(emails)})"]
     for i, e in enumerate(emails, 1):
         frm = e["from"].split("<")[0]
         lines.append(f"{i}. {frm} - {e['subject'][:40]}")
@@ -261,67 +271,68 @@ async def cmd_gmail(u, c):
 
 async def cmd_calendar(u, c):
     if not google:
-        await u.message.reply_text("Google not installed")
+        await u.message.reply_text("❌ Google 模組未安裝")
         return
     args = c.args
     if args and args[0].lower() == "week":
         evts = google.calendar_week()
-        ttl = "Next 7 days"
+        ttl = "📅 未來 7 日行程"
     else:
         evts = google.calendar_today()
-        ttl = "Today"
+        ttl = "📅 今日行程"
     if not evts:
-        await u.message.reply_text(f"{ttl}: none")
+        await u.message.reply_text(f"{ttl}\n（無行程）")
         return
     lines = [ttl]
     for e in evts:
-        lines.append(f"  {e['start']} - {e['summary'][:50]}")
+        lines.append(f"• {e['start']} — {e['summary'][:50]}")
     await u.message.reply_text("\n".join(lines))
 
 async def cmd_drive(u, c):
     if not google:
-        await u.message.reply_text("Google not installed")
+        await u.message.reply_text("❌ Google 模組未安裝")
         return
     q = " ".join(c.args) if c.args else ""
     if q:
         rs = google.drive_search(q)
         if not rs:
-            await u.message.reply_text("No results")
+            await u.message.reply_text(f"🔍 搜尋「{q}」無結果")
             return
-        lines = [f"Search: {q}"]
+        lines = [f"🔍 Drive 搜尋: {q}"]
         for f in rs:
-            lines.append(f"  {f['name']} ({f['type']})")
+            lines.append(f"• {f['name']} ({f['type']})")
         await u.message.reply_text("\n".join(lines))
         return
     fs = google.drive_list()
     if not fs:
-        await u.message.reply_text("Empty")
+        await u.message.reply_text("📁 無最近檔案")
         return
-    lines = ["Recent files"]
+    lines = ["📁 最近 Drive 檔案"]
     for f in fs[:10]:
-        lines.append(f"  {f['name']} ({f['type']}, {f['modified']})")
+        lines.append(f"• {f['name']} ({f['type']}, {f['modified']})")
     await u.message.reply_text("\n".join(lines))
 
 async def cmd_maps(u, c):
     if not google:
-        await u.message.reply_text("Google not installed")
+        await u.message.reply_text("❌ Google 模組未安裝")
         return
     q = " ".join(c.args) if c.args else ""
     if not q:
-        await u.message.reply_text("Usage: /maps keyword")
+        await u.message.reply_text("🔍 用法: /maps 關鍵字\n例: /maps 中環咖啡")
         return
-    await u.message.reply_text(f"Searching: {q}")
+    await u.message.reply_text(f"🔍 搜尋: {q}")
     lat = lng = None
     if u.message.location:
         lat = u.message.location.latitude
         lng = u.message.location.longitude
     rs = google.maps_search(q, lat, lng)
     if not rs:
-        await u.message.reply_text("No results")
+        await u.message.reply_text("❌ 無結果")
         return
-    lines = [f"Places: {q}"]
+    lines = [f"📍 搜尋結果: {q}"]
     for r in rs[:5]:
-        lines.append(f"  {r['name']}")
+        stars = "⭐" * max(1, round(float(r['rating']))) if r['rating'] != 'N/A' else ""
+        lines.append(f"• **{r['name']}** {stars}")
         lines.append(f"  {r['address']}")
         lines.append(f"  {r['maps_url']}")
     await u.message.reply_text("\n".join(lines))
