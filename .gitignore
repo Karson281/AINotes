@@ -1,0 +1,10 @@
+.obsidian/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+*.mp4
+*.mov
+node_modules/
+.tmp.driveupload/

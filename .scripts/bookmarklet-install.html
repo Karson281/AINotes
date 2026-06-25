@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>Save to Vault - 安裝</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+.box { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; background: #f9fafb; }
+.btn { display: inline-block; padding: 8px 20px; background: #7c3aed; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Save to Vault</h1>
+
+<div class="box">
+<h2>方法一：快捷鍵（最簡單）</h2>
+<p>在任何 AI 頁面，㩒書籤 <strong>Save to Vault</strong>，然後喺 Obsidian 貼上：</p>
+<p>1. 加 Bookmarklet 去書籤欄：</p>
+<p><a class="btn" href="javascript:prompt('Copy this, paste in vault:',document.title+'\n\n'+document.body.innerText.slice(0,5000))">Save to Vault</a></p>
+<p>拖上面掣去書籤欄</p>
+<p>2. 㩒書籤 → 全選 → Ctrl+C 複製</p>
+<p>3. Obsidian 開新 Note → Ctrl+V 貼上</p>
+</div>
+
+<div class="box">
+<h2>方法二：Python CLI（已可用）</h2>
+<p>用 vault-tool.py import 功能：</p>
+<code>python3 D:/ObsidianVault/AINotes/.scripts/vault-tool.py import &lt;你的檔案.md&gt;</code>
+<p style="margin-top:12px">或者將下載咗嘅 .md 直接搬去：</p>
+<code>D:\ObsidianVault\AINotes\1-AI-Conversations\</code>
+</div>
+
+</body>
+</html>

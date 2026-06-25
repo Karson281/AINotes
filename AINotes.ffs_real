@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FreeFileSync XmlType="REAL" XmlFormat="2">
+    <Directories>
+        <Item/>
+        <Item>G:\我的雲端硬碟\AINotes</Item>
+        <Item>D:\kaisu\Google Drive\AINotes</Item>
+    </Directories>
+    <Delay>10</Delay>
+    <Commandline/>
+</FreeFileSync>

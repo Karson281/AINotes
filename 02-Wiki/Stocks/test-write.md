@@ -1,0 +1,5 @@
+---
+ticker: TEST
+---
+
+test

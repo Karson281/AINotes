@@ -1,0 +1,42 @@
+sources:
+  - folder: Stocks
+filters:
+  and:
+    - type = "stock-analysis"
+properties:
+  ticker:
+    displayName: 代碼
+  rating:
+    displayName: 評級
+  status:
+    displayName: 狀態
+  date:
+    displayName: 日期
+  source:
+    displayName: 來源
+views:
+  - type: table
+    name: " 全部分析記錄"
+    order:
+      - date
+      - ticker
+    summaries:
+      ticker: Count
+  - type: table
+    name: ✅ 買入評級
+    filters:
+      or:
+        - rating = "建倉買入"
+        - rating = "加倉買入"
+  - type: table
+    name: 👀 密切觀察
+    filters:
+      and:
+        - rating = "密切觀察"
+  - type: table
+    name: 📅 最新分析
+    order:
+      - date
+      - ticker
+    summaries:
+      ticker: Count
