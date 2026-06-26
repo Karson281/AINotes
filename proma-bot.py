@@ -182,7 +182,7 @@ async def cmd_analyze(u, c):
     if not wl:
         await u.message.reply_text("Watchlist empty")
         return
-    await msg.edit_text(f"🔄 開始批量分析 {len(wl)} 隻股票...\n（每隻約需 30-60 秒）")
+    msg = await u.message.reply_text(f"🔄 開始批量分析 {len(wl)} 隻股票...\n（每隻約需 30-60 秒）")
     results = []
     for i, t in enumerate(wl):
         try:
