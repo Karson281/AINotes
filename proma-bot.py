@@ -380,6 +380,10 @@ async def cmd_maps(u, c):
         lines.append(f"  {r['maps_url']}")
     await u.message.reply_text("\n".join(lines))
 
+async def cmd_mystatus(u, c):
+    gs = google.status() if google else "❌ Google 模組未安裝"
+    await u.message.reply_text(gs)
+
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).job_queue(JobQueue()).build()
     app.add_handler(CommandHandler("start", cmd_start))
@@ -389,6 +393,7 @@ def main():
     app.add_handler(CommandHandler("calendar", cmd_calendar))
     app.add_handler(CommandHandler("drive", cmd_drive))
     app.add_handler(CommandHandler("maps", cmd_maps))
+    app.add_handler(CommandHandler("mystatus", cmd_mystatus))
     # Single stock analysis via text: "分析 0941.HK"
     app.add_handler(MessageHandler(filters.Regex(r'^分析\s+'), cmd_analyze_single))
     app.job_queue.run_daily(
