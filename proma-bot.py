@@ -98,11 +98,13 @@ def get_rating(t):
     return NEUTRAL
 
 PROMPT = (
-    "你是資深股票分析師。"
-    "對 {t} 分析：\n"
-    "【評級】：建倉買入/加倉買入/"
-    "減倉賣出/清倉賣出/密切觀察/觀望"
-    "\n【技術面】\n【基本面】\n【策略】"
+    "你是一位資深港股美股投資專家。"
+    "對 {t} 進行分析，輸出以下格式：\n\n"
+    "【評級】：建倉買入/加倉買入/減倉賣出/清倉賣出/密切觀察/觀望（不可用「中性」）\n"
+    "【技術面】：均線狀態、MACD、RSI、成交量\n"
+    "【基本面】：盈利狀況、估值水平、股息率\n"
+    "【策略】：入場區間、目標價、止損位（如適用）\n\n"
+    "分析必須基於真實數據，包含具體價位。"
 )
 
 async def analyze(ticker):
@@ -203,6 +205,14 @@ async def cmd_analyze(u, c):
     parts.append(f"🔴 減倉/清倉 ({len(sel)}): {','.join(r['ticker'] for r in sel) or '無'}")
     parts.append(f"⚪ 觀望 ({len(neu)}): {','.join(r['ticker'] for r in neu) or '無'}")
     await u.message.reply_text("\n".join(parts))
+    # Auto git push after manual analyze too
+    try:
+        import subprocess
+        subprocess.run(["git", "-C", "/root/vault", "add", "."], capture_output=True, timeout=30)
+        subprocess.run(["git", "-C", "/root/vault", "commit", "-m", f"manual analyze {datetime.now():%Y-%m-%d %H:%M}"], capture_output=True, timeout=30)
+        subprocess.run(["git", "-C", "/root/vault", "push"], capture_output=True, timeout=60)
+    except:
+        pass
 
 async def daily_job(c):
     wl = load_wl()
@@ -236,6 +246,39 @@ async def daily_job(c):
         except Exception as e:
             print(f"[DAILY] Failed {cid}: {e}")
     print(f"[DAILY] Done {len(results)}")
+    # Auto git push
+    try:
+        import subprocess
+        subprocess.run(["git", "-C", "/root/vault", "add", "."], capture_output=True, timeout=30)
+        subprocess.run(["git", "-C", "/root/vault", "commit", "-m", f"daily update {datetime.now():%Y-%m-%d}"], capture_output=True, timeout=30)
+        subprocess.run(["git", "-C", "/root/vault", "push"], capture_output=True, timeout=60)
+        print(f"[GIT] Pushed {len(results)} reports to GitHub")
+    except Exception as e:
+        print(f"[GIT] Sync skipped: {e}")
+
+async def cmd_analyze_single(u, c):
+    """Handle single stock analysis via '分析 0941.HK' text input"""
+    text = u.message.text.strip().upper()
+    ticker = re.sub(r'^(分析|/STOCK)\s*', '', text).strip()
+    if not ticker or len(ticker) < 1:
+        await u.message.reply_text("請輸入股票代號，例如：分析 0941.HK")
+        return
+    await u.message.reply_text(f"🔍 分析 {ticker}，請稍候...")
+    try:
+        d = await analyze(ticker)
+        op = await write_obs(d)
+        msg = f"✅ {d['ticker']}\n評級：{d['rating']}"
+        if op:
+            msg += f"\n📂 {op}"
+        else:
+            msg += "\n⚠️ Windows 未開機，報告僅存 VPS"
+        await u.message.reply_text(msg)
+        full = d["content"]
+        if len(full) > 4000:
+            full = full[:4000] + "\n\n...(truncated)"
+        await u.message.reply_text(full)
+    except Exception as e:
+        await u.message.reply_text(f"❌ 分析失敗：{str(e)[:200]}")
 
 async def cmd_gmail(u, c):
     if not google:
@@ -346,6 +389,8 @@ def main():
     app.add_handler(CommandHandler("calendar", cmd_calendar))
     app.add_handler(CommandHandler("drive", cmd_drive))
     app.add_handler(CommandHandler("maps", cmd_maps))
+    # Single stock analysis via text: "分析 0941.HK"
+    app.add_handler(MessageHandler(filters.Regex(r'^分析\s+'), cmd_analyze_single))
     app.job_queue.run_daily(
         daily_job,
         time=time(hour=10, minute=0),
