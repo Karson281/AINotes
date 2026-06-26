@@ -384,6 +384,55 @@ async def cmd_mystatus(u, c):
     gs = google.status() if google else "❌ Google 模組未安裝"
     await u.message.reply_text(gs)
 
+async def cmd_portfolio(u, c):
+    """Generate portfolio summary from vault reports (mobile-friendly)"""
+    msg = await u.message.reply_text("🔄 正在生成持倉摘要...")
+    vault_dir = Path("/root/vault/02-Wiki/Stocks")
+    if not vault_dir.exists():
+        await msg.edit_text("❌ 無法讀取 Vault（/root/vault 不存在）")
+        return
+    files = sorted(vault_dir.glob("2026*.md"))
+    if not files:
+        await msg.edit_text("❌ Stocks folder 無報告")
+        return
+    buy, add, sell, watch = [], [], [], []
+    for f in files:
+        try:
+            content = f.read_text("utf-8")
+            front = {}
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    for line in parts[1].strip().split("\n"):
+                        if ":" in line:
+                            k, v = line.split(":", 1)
+                            front[k.strip()] = v.strip()
+            ticker = front.get("ticker", f.stem)
+            rating = front.get("rating", "")
+            if "建倉" in rating:
+                buy.append(ticker)
+            elif "加倉" in rating:
+                add.append(ticker)
+            elif "賣出" in rating or "減倉" in rating:
+                sell.append(ticker)
+            else:
+                watch.append(ticker)
+        except:
+            pass
+    lines = [
+        "📊 **持倉總覽**",
+        "",
+        f"🟢 建倉買入 ({len(buy)}): {', '.join(buy) or '無'}",
+        f"🔵 加倉買入 ({len(add)}): {', '.join(add) or '無'}",
+        f"🔴 減倉賣出 ({len(sell)}): {', '.join(sell) or '無'}",
+        f"⚪ 觀望 ({len(watch)}): {', '.join(watch) or '無'}",
+        "",
+        f"📁 共掃描 {len(files)} 份報告",
+    ]
+    if len(sell) > 0:
+        lines.append(f"\n⚠️ 風險提示：有 {len(sell)} 隻建議減倉/賣出，請留意！")
+    await msg.edit_text("\n".join(lines))
+
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).job_queue(JobQueue()).build()
     app.add_handler(CommandHandler("start", cmd_start))
@@ -394,6 +443,8 @@ def main():
     app.add_handler(CommandHandler("drive", cmd_drive))
     app.add_handler(CommandHandler("maps", cmd_maps))
     app.add_handler(CommandHandler("mystatus", cmd_mystatus))
+    app.add_handler(CommandHandler("portfolio", cmd_portfolio))
+    app.add_handler(CommandHandler("summary", cmd_portfolio))
     # Single stock analysis via text: "分析 0941.HK"
     app.add_handler(MessageHandler(filters.Regex(r'^分析\s+'), cmd_analyze_single))
     app.job_queue.run_daily(
