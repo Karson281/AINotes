@@ -395,8 +395,9 @@ async def cmd_portfolio(u, c):
     if not files:
         await msg.edit_text("❌ Stocks folder 無報告")
         return
+    seen = set()
     buy, add, sell, watch = [], [], [], []
-    for f in files:
+    for f in reversed(files):  # latest first
         try:
             content = f.read_text("utf-8")
             front = {}
@@ -408,6 +409,9 @@ async def cmd_portfolio(u, c):
                             k, v = line.split(":", 1)
                             front[k.strip()] = v.strip()
             ticker = front.get("ticker", f.stem)
+            if ticker in seen:
+                continue  # dedup, keep latest only
+            seen.add(ticker)
             rating = front.get("rating", "")
             if "建倉" in rating:
                 buy.append(ticker)
