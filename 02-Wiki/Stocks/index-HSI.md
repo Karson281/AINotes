@@ -1,7 +1,6 @@
 ---
 type: index
-ticker: 2800.HK
+ticker: ^HSI
 name: 恒生指數
-price: 23.08
-change: 0
+price: 22671.86
 ---
