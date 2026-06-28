@@ -1,7 +1,7 @@
 ---
 type: index
-ticker: ^IXIC
+ticker: QQQ
 name: 納斯達克
-price: 25297.617
-change: -0.2404956
+price: 706.52
+change: 0
 ---
