@@ -18,7 +18,7 @@ from pathlib import Path
 import re
 import subprocess
 
-VAULT = Path("C:/Users/kaisu/OneDrive/AINotes")
+VAULT = Path("D:/kaisu/Google Drive/AINotes")
 PORT = 18765
 PID_FILE = VAULT / ".scripts" / ".server.pid"
 

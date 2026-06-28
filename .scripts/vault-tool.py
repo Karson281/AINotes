@@ -17,7 +17,7 @@ import os, sys, json, urllib.request, urllib.error, ssl, re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-VAULT_PATH = Path("C:/Users/kaisu/OneDrive/AINotes")
+VAULT_PATH = Path("D:/kaisu/Google Drive/AINotes")
 API_PORT = 27124
 API_KEY_FILE = VAULT_PATH / ".obsidian" / "plugins" / "obsidian-local-rest-api" / "data.json"
 

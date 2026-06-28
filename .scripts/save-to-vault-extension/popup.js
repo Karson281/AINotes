@@ -1,3 +1,8 @@
+// Save to Vault — POST to local vault-server instead of download
+
+const VAULT_SERVER = "http://127.0.0.1:18765";
+const TOKEN = "kn-save-token-2026";
+
 // Detect platform and grab content from current tab
 async function detectPage() {
 	const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -15,14 +20,13 @@ async function detectPage() {
 	else if (host.includes("qwen") || host.includes("tongyi")) platform = "千問";
 	else platform = host.split(".").slice(-2, -1)[0] || "web";
 
-	document.getElementById("platform").textContent = "Platform: " + platform;
+	document.getElementById("platform").textContent = "📡 " + platform;
 
 	// Try to get page content
 	try {
 		const [result] = await chrome.scripting.executeScript({
 			target: { tabId: tab.id },
 			func: () => {
-				// Try common selectors for different AI platforms
 				let text = "";
 				const selectors = [
 					"article", "main", 'pre', 'textarea',
@@ -49,59 +53,45 @@ async function detectPage() {
 		document.getElementById("content").value = "Error: " + e.message;
 	}
 
-	// Use page title as default
 	document.getElementById("title").value = tab.title || "untitled";
 }
 
 detectPage();
 
-document.getElementById("saveBtn").addEventListener("click", () => {
+document.getElementById("saveBtn").addEventListener("click", async () => {
 	const title = document.getElementById("title").value.trim();
 	if (!title) { document.getElementById("status").textContent = "Please enter a title"; return; }
 
-	const platform = document.getElementById("platform").textContent.replace("Platform: ", "");
+	const platform = document.getElementById("platform").textContent.replace("📡 ", "");
 	const content = document.getElementById("content").value;
 	const tagsStr = document.getElementById("tags").value.trim();
 	const tags = tagsStr ? tagsStr.split(",").map(t => t.trim()).filter(Boolean) : [];
 
-	const now = new Date();
-	const ds = now.toISOString().slice(0, 10);
-	const dt = now.toISOString().slice(11, 16);
-	const tagY = tags.length ? tags.map(t => "  - " + t).join("\n") : "  - topic/untagged";
+	const btn = document.getElementById("saveBtn");
+	const status = document.getElementById("status");
+	btn.disabled = true;
+	status.textContent = "Saving...";
 
-	const filename = title.replace(/[^a-zA-Z0-9一-鿿]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "note";
-
-	const note = [
-		"---",
-		"creation_date: " + ds,
-		'source: "' + platform + '"',
-		"tags:",
-		tagY,
-		"status: inbox",
-		"---",
-		"",
-		"# " + title,
-		"",
-		"**Date:** " + ds + " " + dt,
-		"**Source:** " + platform,
-		"",
-		"---",
-		"",
-		content,
-		""
-	].join("\n");
-
-	const blob = new Blob([note], { type: "text/markdown" });
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = ds + "-" + filename + ".md";
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
-	URL.revokeObjectURL(url);
-
-	document.getElementById("status").textContent = "Downloaded! Move to vault 1-AI-Conversations/";
-	document.getElementById("saveBtn").disabled = true;
-	setTimeout(() => { window.close(); }, 2000);
+	try {
+		const resp = await fetch(VAULT_SERVER + "/api/save", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				token: TOKEN,
+				title: title,
+				content: content,
+				source: platform,
+				tags: tags,
+			})
+		});
+		const data = await resp.json();
+		if (resp.ok) {
+			status.textContent = "✅ Saved to vault: " + (data.path || "");
+		} else {
+			status.textContent = "❌ Error: " + (data.error || resp.status);
+		}
+	} catch (e) {
+		status.textContent = "❌ Server offline? Start vault-server first.";
+	}
+	setTimeout(() => { btn.disabled = false; }, 2000);
 });
