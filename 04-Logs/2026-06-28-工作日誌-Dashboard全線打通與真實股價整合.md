@@ -91,7 +91,7 @@ Dashboard 在 2026-06-25 建立後存在多個問題：
 ## 系統流程
 
 ```
-VPS 18:00 HKT（stock_daily.py）
+VPS 18:00 HKT 週一至五（cron: 0 10 * * 1-5 UTC）
   → yfinance 抓真實股價 + 指數
   → DeepSeek API 分析
   → 寫入 02-Wiki/Stocks/YYYYMMDD-TICKER.md
@@ -100,6 +100,8 @@ VPS 18:00 HKT（stock_daily.py）
   → 本機 Git Pull → Obsidian
   → Dashboard DataviewJS 即時更新
 ```
+
+> 修正：2026-06-28 將排程由每日改為週一至五（`1-5`），星期六日股市休市不分析。
 
 ---
 
