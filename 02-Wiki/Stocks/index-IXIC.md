@@ -2,5 +2,5 @@
 type:index
 ticker:^IXIC
 name:纳斯达克
-price:25611.41
+price:25593.37
 ---
