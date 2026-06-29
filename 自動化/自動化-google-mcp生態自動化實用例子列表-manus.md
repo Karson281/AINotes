@@ -8,7 +8,7 @@ status: inbox
 
 # 自動化-Google MCP生態自動化實用例子列表 - Manus
 
-**Date:** 2026-06-29 01:43
+**Date:** 2026-06-29 01:47
 
 ---
 
