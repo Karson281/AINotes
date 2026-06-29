@@ -1,6 +1,6 @@
 // Save to Vault — POST to local vault-server instead of download
 
-const VAULT_SERVER = "http://100.98.113.30:18765";
+const VAULT_SERVER = "http://100.119.51.38:18765";
 const TOKEN = "kn-save-token-2026";
 
 // Detect platform and grab content from current tab
