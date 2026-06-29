@@ -1,6 +1,6 @@
 ---
-type: index
-ticker: ^HSI
-name: 恒生指數
-price: 22671.86
+type:index
+ticker:^HSI
+name:恒生指数
+price:23026.68
 ---

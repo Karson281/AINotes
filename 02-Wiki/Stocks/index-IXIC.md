@@ -1,6 +1,6 @@
 ---
-type: index
-ticker: ^IXIC
-name: 納斯達克
-price: 25297.62
+type:index
+ticker:^IXIC
+name:纳斯达克
+price:25536.31
 ---
