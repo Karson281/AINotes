@@ -37,6 +37,20 @@
 
 ### 3. Obsidian Vault
 在 CLAUDE.md 記錄了 Vault 路徑，新 Agent 自動知道。
+
+### 4. Proma Telegram Bot 修復
+
+**問題**：Bot 無法啟動（`service proma-bot.service` fail）
+ 
+**原因**：
+1. f-string 內使用了雙引號 dict access（`d["ticker"]`），Python 3.10/3.11 不支援 → 修正為 `d['ticker']`
+2. `/root/.env` 中的 `TELEGRAM_TOKEN` 仍是舊 Token，未更新
+
+**修復**：
+
+- 修正 f-string 語法：`d["ticker"]` → `d['ticker']`（共 2 處）
+- 更新 `/root/.env` 的 `TELEGRAM_TOKEN` 為新 Token
+- `systemctl restart proma-bot.service` → ✅ active (running)
 ## 備註
 - Hermes 更新落後 13381 commits（v0.16.0 vs upstream），需注意已知漏洞
 - VPS 提示需重啟（核心更新 pending）
