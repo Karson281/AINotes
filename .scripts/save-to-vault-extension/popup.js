@@ -9,8 +9,8 @@ async function detectPage() {
 	const tab = tabs[0];
 	if (!tab) return;
 
-	const url = tab.url || "";
-	const host = new URL(url).hostname || "";
+	let host = "";
+	try { host = new URL(tab.url || "").hostname || ""; } catch(e) { host = "web"; }
 	let platform = "web";
 	if (host.includes("perplexity")) platform = "Perplexity";
 	else if (host.includes("gemini")) platform = "Gemini";
