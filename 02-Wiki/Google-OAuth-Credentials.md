@@ -7,16 +7,17 @@ tags: [google, oauth, credentials, reference]
 
 ## My Project 68208 (`consummate-rush-500205-r2`)
 
-| Client | Client ID (尾段) | 用途 |
-|--------|-----------------|------|
-| **Proma Stock Bot** | `...mlc...5u` | 預留 (Proma Stock Bot) |
-| **Hermes Agent** ✅ | `...dsv...l3od` | **目前用緊** — Gmail, Calendar, Drive, Sheets, Docs |
+| Client                  | Client ID (尾段)    | 用途                                                    |
+| ----------------------- | ----------------- | ----------------------------------------------------- |
+| ~~**Proma Stock Bot**~~ | ~~`...mlc...5u`~~ | ~~預留 (Proma Stock Bot)~~                              |
+| **Hermes Agent** ✅      | `...dsv...l3od`   | **目前用緊** — Gmail, Calendar, Drive, Sheets, Docs 及股票分析 |
+|                         |                   |                                                       |
 
-## My Project 64869
+## ~~My Project 64869~~
 
-| Client | Client ID (尾段) | 用途 |
-|--------|-----------------|------|
-| **Google MCP Client** | `...epe...gm` | Google MCP Client (獨立 project) |
+| ~~Client~~                | ~~Client ID (尾段)~~ | ~~用途~~                             |
+| --------------------- | -------------- | ------------------------------ |
+| ~~**Google MCP Client**~~ | ~~`...epe...gm`~~  | ~~Google MCP Client (獨立 project)~~ |
 
 > **Security**: 上述 client secrets 已按 security policy 遮罩處理，實際值只存在於 Google Cloud Console 及 `~/.hermes/google_client_secret.json`。
 
