@@ -14,10 +14,10 @@ source: vault-wide scan for "跟進" / "待辦"
 
 ### [[有待跟進-MQTT Bridge-落地部署.md]]
 > 路徑：`開發區/MQTT Bridge/`
-- [ ] SSH / Browser Console 入 VPS
-- [ ] `cd ~/mqtt-bridge && docker compose up -d`
-- [ ] 設 MQTT 密碼
-- [ ] `docker compose restart`
+- [ ] ~~SSH / Browser Console 入 VPS~~
+- [ ] ~~`cd ~/mqtt-bridge && docker compose up -d`~~
+- [ ] ~~設 MQTT 密碼~~
+- [ ] ~~`docker compose restart`~~
 - [ ] 測試連線
 - [ ] Windows：安裝 paho-mqtt watchdog plyer
 - [ ] Edit `mqtt-subscriber.py`（填 VPS IP + 密碼）
