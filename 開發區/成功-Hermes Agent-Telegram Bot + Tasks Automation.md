@@ -11,14 +11,6 @@ created: 2026-06-21
 
 ## Telegram 設定
 Bot Token：由 @BotFather 建立，已寫入 config.yaml
-
-```yaml
-telegram:
-  enabled: true
-  bot_token: "8644362320:AAF_YYR8NmT44HXPyKmzOu-lWrWkpDEtOR0"
-  allowed_user_ids: []
-```
-
 ## Tasks Monitoring Crontab
 檔案：`~/scripts/check-tasks.sh`
 排程：每 10 分鐘執行
