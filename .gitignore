@@ -8,3 +8,13 @@
 *.mov
 node_modules/
 .tmp.driveupload/
+
+# 🔒 機密檔案 — 永不 commit
+google-token.json
+google_client_secret.json
+client_secret*.json
+credentials.json
+api-key.txt
+*-token.json
+.env
+*.env
