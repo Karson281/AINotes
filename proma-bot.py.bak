@@ -15,7 +15,7 @@ except ImportError:
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 DEEPSEEK_KEY = os.getenv("DEEPSEEK_KEY", os.getenv("DEEPSEEK_API_KEY"))
-OBSIDIAN_AUTH = os.getenv("OBSIDIAN_AUTH", "Bearer proma-secret-2026")
+OBSIDIAN_AUTH = os.getenv("OBSIDIAN_AUTH")
 WATCHLIST = [
     "0005.HK","0006.HK","0267.HK","0270.HK","0363.HK",
     "0823.HK","0941.HK","2388.HK","2638.HK","2800.HK",
