@@ -4,7 +4,7 @@ import asyncio, httpx, json, re, os, subprocess, yfinance as yf
 from datetime import datetime
 from pathlib import Path
 
-DEEPSEEK_KEY = os.environ.get("DEEPSEEK_KEY", "")
+DEEPSEEK_KEY = os.environ.get("DEEPSEEK_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
 WATCHLIST_FILE = "/root/vault/stock-watchlist.json"
 TARGET_FOLDER = "/root/vault/02-Wiki/Stocks"
 OBSIDIAN_URL = "http://100.98.113.30:8766/obsidian/vault"
