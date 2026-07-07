@@ -88,6 +88,10 @@ def fetch_stock_data(ticker):
         df = stock.history(period="200d")
         if df.empty:
             return None, None, None
+        # Drop rows where Close is NaN (HK market post-close data sync)
+        df = df.dropna(subset=["Close"])
+        if df.empty:
+            return None, None, None
         price = round(df["Close"].iloc[-1], 2)
         prev_close = round(df["Close"].iloc[-2], 2) if len(df) > 1 else price
         change_pct = round((price - prev_close) / prev_close * 100, 2)
