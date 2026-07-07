@@ -12,7 +12,7 @@ VPS (Hermes) 同 Windows (Obsidian) 之間透過 Tailscale VPN + qwen-vision pro
 ## 網絡拓樸
 ```
 VPS (srv1740946)          Windows (ideapad-slim3i)
-100.119.51.38 ◄───────► 100.98.113.30
+[VPS_IP] ◄───────► 100.98.113.30
     │                          │
     │    Tailscale VPN          │ qwen-vision server:8766
     │                          │ (含 Obsidian proxy)
@@ -26,7 +26,7 @@ curl → :8766/obsidian/ → → → → 127.0.0.1:27124 (Obsidian REST API)
 | 裝置 | Tailscale IP | 名稱 |
 |------|-------------|------|
 | Windows | 100.98.113.30 | ideapad |
-| VPS | 100.119.51.38 | srv1740946 |
+| VPS | [VPS_IP] | srv1740946 |
 | iPad | 100.118.52.119 | ipad-gen-6（offline） |
 | NAS | 100.79.213.2 | nas |
 

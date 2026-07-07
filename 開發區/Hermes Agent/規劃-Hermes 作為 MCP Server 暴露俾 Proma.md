@@ -20,7 +20,7 @@ Proma (Windows) ──MCP──► Hermes MCP Server (VPS port 8767)
 
 ## 所需實行
 - [ ] Hermes 啟動 MCP server 模式（原生功能）
-- [ ] Tailscale 開 port（VPS 100.119.51.38:8767）
+- [ ] Tailscale 開 port（VPS [VPS_IP]:8767）
 - [ ] Windows Proma mcp.json 加入 Hermes 端點
 - [ ] 測試：Proma function call Hermes 搜索網絡
 

@@ -49,7 +49,7 @@
 
 **開發區/Hermes Agent/規劃-Hermes 作為 MCP Server 暴露俾 Proma.md**
   - [ ] Hermes 啟動 MCP server 模式（原生功能）
-  - [ ] Tailscale 開 port（VPS 100.119.51.38:8767）
+  - [ ] Tailscale 開 port（VPS [VPS_IP]:8767）
   - [ ] Windows Proma mcp.json 加入 Hermes 端點
   - [ ] 測試：Proma function call Hermes 搜索網絡
 
