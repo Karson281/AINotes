@@ -362,8 +362,9 @@ def save_watchlist():
     icon = {"建倉買入":"🟢","加倉買入":"🟢","密切觀察":"🟡","觀望":"⚪","減倉賣出":"🔴","清倉賣出":"🔴"}
     
     stocks = []
+    skip_suffixes = ("股票分析摘要.md", "股票分析框架.md", "股息日曆.md", "股票監察名單.md")
     for f in sorted(Path(TARGET_FOLDER).glob(f"{ts}-*.md")):
-        if f.name in ("股票分析摘要.md","股票分析框架.md","股息日曆.md"):
+        if f.name.endswith(skip_suffixes):
             continue
         text = f.read_text(encoding="utf-8")
         m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
