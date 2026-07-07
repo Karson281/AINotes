@@ -9,7 +9,6 @@ from pathlib import Path
 
 DEEPSEEK_KEY = os.environ.get("DEEPSEEK_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
 if not DEEPSEEK_KEY:
-    # Try reading from .env
     env_path = "/root/.env"
     if os.path.exists(env_path):
         for line in open(env_path):
@@ -30,403 +29,327 @@ STOCKS = [
     ("2800.HK","盈富基金","HK"), ("3466.HK","香港高息股ETF","HK"),
     ("3988.HK","中國銀行","HK"), ("6823.HK","香港電訊","HK"),
     ("JPM","摩根大通","US"), ("ABBV","艾伯維","US"),
-    ("CVX","雪佛龍","US"), ("O","Realty Income","US"),
-    ("VZ","Verizon","US"),
+    ("CVX","雪佛龍","US"), ("O","Realty Income","US"), ("VZ","Verizon","US"),
 ]
 
-def calc_rsi(series, period=14):
-    delta = series.diff()
-    gain = delta.where(delta > 0, 0).rolling(period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(period).mean()
-    rs = gain / loss.replace(0, np.nan)
-    rsi = 100 - (100 / (1 + rs))
-    return rsi.iloc[-1] if not pd.isna(rsi.iloc[-1]) else None
+INDICES = [
+    ("^HSI","恆生指數","HSI"),
+    ("^IXIC","納斯達克指數","IXIC"),
+    ("^GSPC","標準普爾500指數","GSPC"),
+    ("^DJI","道瓊斯工業平均指數","DJI"),
+]
 
-def calc_macd(series, fast=12, slow=26, signal=9):
-    ema_fast = series.ewm(span=fast).mean()
-    ema_slow = series.ewm(span=slow).mean()
-    macd_line = ema_fast - ema_slow
-    signal_line = macd_line.ewm(span=signal).mean()
-    histogram = macd_line - signal_line
-    return macd_line.iloc[-1], signal_line.iloc[-1], histogram.iloc[-1]
+OS = ["\u0005","\u0006"]
+for o in OS:
+    STOCKS = [(t if o not in t else t.replace(o, ""), n, m) for t, n, m in STOCKS]
 
-def fetch_technical(ticker):
-    """Fetch historical data and calculate real technical indicators."""
+def compute_indicators(df):
+    """Calculate technical indicators from OHLCV DataFrame"""
+    result = {"ma20": None, "ma50": None, "ma200": None, "rsi14": None,
+              "macd": None, "macd_signal": None, "vol_ratio": None}
+    close = df["Close"]
+    if len(close) < 20:
+        return result
+    
+    # MA
+    result["ma20"] = round(close.rolling(20).mean().iloc[-1], 2)
+    if len(close) >= 50:
+        result["ma50"] = round(close.rolling(50).mean().iloc[-1], 2)
+    if len(close) >= 200:
+        result["ma200"] = round(close.rolling(200).mean().iloc[-1], 2)
+    
+    # RSI(14)
+    delta = close.diff()
+    gain = delta.where(delta > 0, 0.0).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0.0)).rolling(14).mean()
+    rs = gain / loss
+    result["rsi14"] = round(100 - (100 / (1 + rs.iloc[-1])), 1)
+    
+    # MACD (12,26,9)
+    ema12 = close.ewm(span=12).mean()
+    ema26 = close.ewm(span=26).mean()
+    macd_line = ema12 - ema26
+    signal = macd_line.ewm(span=9).mean()
+    result["macd"] = round(macd_line.iloc[-1], 2)
+    result["macd_signal"] = round(signal.iloc[-1], 2)
+    
+    # Volume ratio (5d avg / 20d avg)
+    vol = df["Volume"]
+    vol5 = vol.rolling(5).mean().iloc[-1]
+    vol20 = vol.rolling(20).mean().iloc[-1]
+    result["vol_ratio"] = round(vol5 / vol20, 2) if vol20 > 0 else 1.0
+    
+    return result
+
+def fetch_stock_data(ticker):
+    """Fetch 200 days of OHLCV from Yahoo Finance"""
     try:
         stock = yf.Ticker(ticker)
-        hist = stock.history(period="1y")
-        if hist.empty or len(hist) < 200:
-            hist = stock.history(period="max")
-            if hist.empty or len(hist) < 200:
-                return None, "Insufficient historical data"
+        df = stock.history(period="200d")
+        if df.empty:
+            return None, None, None
+        price = round(df["Close"].iloc[-1], 2)
+        prev_close = round(df["Close"].iloc[-2], 2) if len(df) > 1 else price
+        change_pct = round((price - prev_close) / prev_close * 100, 2)
+        indicators = compute_indicators(df)
+        return price, change_pct, indicators
+    except Exception:
+        return None, None, None
 
-        close = hist["Close"]
-        volume = hist["Volume"]
-        current = close.iloc[-1]
-        prev_close = close.iloc[-2] if len(close) > 1 else current
+def fetch_index_data(ticker):
+    """Fetch index data from Yahoo Finance"""
+    try:
+        stock = yf.Ticker(ticker)
+        df = stock.history(period="5d")
+        if df.empty:
+            return None, None
+        price = round(df["Close"].iloc[-1], 2)
+        prev = round(df["Close"].iloc[-2], 2) if len(df) > 1 else price
+        change_pct = round((price - prev) / prev * 100, 2)
+        return price, change_pct
+    except Exception:
+        return None, None
 
-        # Moving Averages
-        ma20 = close.rolling(20).mean().iloc[-1]
-        ma50 = close.rolling(50).mean().iloc[-1]
-        ma200 = close.rolling(200).mean().iloc[-1]
-        ma20_slope = ((ma20 / close.rolling(20).mean().iloc[-5]) - 1) * 100 if len(close) >= 25 else 0
-        ma50_slope = ((ma50 / close.rolling(50).mean().iloc[-10]) - 1) * 100 if len(close) >= 60 else 0
+def analyze_with_deepseek(ticker, name, price, change_pct, indicators, region):
+    """DeepSeek interprets real indicators — no guessing"""
+    prompt = f"""分析 {ticker} ({name})，{region}股：
+價格：{price}，變幅：{change_pct}%
+技術指標（真實數據）：
+- MA20: {indicators['ma20']}，MA50: {indicators['ma50']}，MA200: {indicators['ma200']}
+- RSI(14): {indicators['rsi14']}
+- MACD: {indicators['macd']}，Signal: {indicators['macd_signal']}
+- 成交量比(5d/20d): {indicators['vol_ratio']}
 
-        # RSI
-        rsi = calc_rsi(close)
-        rsi_val = round(rsi, 1) if rsi else None
-        rsi_signal = "超買" if rsi_val and rsi_val > 70 else ("超賣" if rsi_val and rsi_val < 30 else "中性")
+請給予 100-200 字分析（繁體中文），包括：
+1. MA 排列（多頭/空頭/交叉）
+2. RSI 位置（超買/超賣/中性）
+3. MACD 方向（牛差/熊差）
+4. 成交量配合情況
+5. 明確的評級：只能從以下六個選擇一個：
+   - 建倉買入（強烈買入，技術面全面向好）
+   - 加倉買入（中線向好，適合加注）
+   - 密切觀察（技術面中性偏好，等信號）
+   - 觀望（技術面中性偏弱，不建議操作）
+   - 減倉賣出（技術面轉差，減持）
+   - 清倉賣出（全面轉壞，離場）
+6. 一句簡短 action item（交易員語氣）
 
-        # MACD
-        macd_line, signal_line, histogram = calc_macd(close)
-        macd_signal = "金叉" if macd_line > signal_line else "死叉"
-        macd_zero = "零軸上" if macd_line > 0 else "零軸下"
+輸出 JSON 格式：
+{{"rating":"減倉賣出","analysis":"...","action":"..."}}
+不要 markdown code block，純 JSON。"""
+    try:
+        r = httpx.post("https://api.deepseek.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {DEEPSEEK_KEY}","Content-Type":"application/json"},
+            json={"model":"deepseek-chat","messages":[{"role":"user","content":prompt}],
+                  "temperature":0.1,"max_tokens":350},
+            timeout=30)
+        r.raise_for_status()
+        text = r.json()["choices"][0]["message"]["content"].strip()
+        text = re.sub(r'^```(?:json)?\s*|\s*```$', '', text)
+        result = json.loads(text)
+        return result.get("rating","觀望"), result.get("analysis",""), result.get("action","")
+    except Exception:
+        return "觀望", "DeepSeek API 返回異常，無法分析。", "—"
 
-        # Volume
-        avg_vol_20 = volume.rolling(20).mean().iloc[-1]
-        vol_ratio = round(volume.iloc[-1] / avg_vol_20, 2) if avg_vol_20 > 0 else 1
-        vol_signal = "放量" if vol_ratio > 1.5 else ("縮量" if vol_ratio < 0.7 else "正常")
+def clean_duplicates():
+    """Remove dot-less duplicates (e.g. 0005HK.md when 0005.HK.md exists)"""
+    ts = datetime.now().strftime("%Y%m%d")
+    for f in Path(TARGET_FOLDER).glob(f"{ts}-*.md"):
+        name = f.name.replace(f"{ts}-", "")
+        dot_name = name.replace("HK.md", ".HK.md").replace("US.md", ".US.md")
+        if dot_name != name:
+            dot_path = f.parent / f"{ts}-{dot_name}"
+            if dot_path.exists():
+                f.unlink()
 
-        # Trend strength (distance between MAs)
-        ma_arrangement = ""
-        if ma20 > ma50 > ma200:
-            ma_arrangement = "多頭排列 MA20>MA50>MA200"
-        elif ma20 < ma50 < ma200:
-            ma_arrangement = "空頭排列 MA20<MA50<MA200"
-        elif ma50 > ma200 and ma20 < ma50:
-            ma_arrangement = "糾纏 MA20<MA50>MA200"
-        elif ma50 < ma200 and ma20 > ma50:
-            ma_arrangement = "糾纏 MA20>MA50<MA200"
-        else:
-            ma_arrangement = "交叉排列"
-
-        # Price change
-        change_pct = round((current - prev_close) / prev_close * 100, 2)
-
-        # Div info
-        info = {}
-        try:
-            raw_info = stock.info
-            if raw_info and isinstance(raw_info, dict):
-                info = raw_info
-        except:
-            info = {}
-        div_yield = info.get("dividendYield")
-        div_yield_pct = round(div_yield * 100, 2) if div_yield else None
-        try:
-            cal = stock.calendar
-            ex_div = cal.get("Ex-Dividend Date") if cal and isinstance(cal, dict) else None
-        except:
-            ex_div = None
-        ex_div_str = ex_div.strftime("%Y-%m-%d") if hasattr(ex_div, "strftime") else (str(ex_div)[:10] if ex_div else "")
-        name = info.get("shortName") or info.get("longName") or ticker
-
-        return {
-            "name": name,
-            "ticker": ticker,
-            "price": round(current, 3),
-            "prev_close": round(prev_close, 3),
-            "change_pct": change_pct,
-            "ma20": round(ma20, 3),
-            "ma50": round(ma50, 3),
-            "ma200": round(ma200, 3),
-            "ma20_slope": round(ma20_slope, 2),
-            "ma50_slope": round(ma50_slope, 2),
-            "ma_arrangement": ma_arrangement,
-            "rsi": rsi_val,
-            "rsi_signal": rsi_signal,
-            "macd_line": round(macd_line, 4),
-            "signal_line": round(signal_line, 4),
-            "macd_histogram": round(histogram, 4),
-            "macd_signal": macd_signal,
-            "macd_zero": macd_zero,
-            "volume": int(volume.iloc[-1]),
-            "avg_vol_20": int(avg_vol_20),
-            "vol_ratio": vol_ratio,
-            "vol_signal": vol_signal,
-            "div_yield_pct": div_yield_pct,
-            "ex_div_date": ex_div_str,
-            "52w_high": round(info.get("fiftyTwoWeekHigh", close.max()), 2) if not pd.isna(close.max()) else None,
-            "52w_low": round(info.get("fiftyTwoWeekLow", close.min()), 2) if not pd.isna(close.min()) else None,
-            "market_cap": info.get("marketCap"),
-        }, None
-    except Exception as e:
-        return None, str(e)
-
-def build_prompt(t):
-    """Build prompt with REAL technical indicators for DeepSeek."""
-    div_info = ""
-    if t["ex_div_date"]:
-        dd = (datetime.strptime(t["ex_div_date"], "%Y-%m-%d").date() - date.today()).days
-        if dd >= 0 and dd <= 30:
-            div_info = f"\n🔥 {dd}日後除淨"
-        elif dd >= 0:
-            div_info = f"\n📅 {dd}日後除淨"
-        else:
-            div_info = f"\n⏰ 已除淨 {abs(dd)}天"
-    if t["div_yield_pct"]:
-        div_info += f"\n股息率: {t['div_yield_pct']}%"
-
-    risk_items = []
-    if t["ex_div_date"] and "已除" not in div_info:
-        risk_items.append("除息壓力")
-    risk_items.append("宏觀風險")
-    risk_str = " + ".join(risk_items)
-
-    return f"""你是一位資深港股美股投資專家，基於以下真實技術指標進行分析。
-
-【{t['ticker']} {t['name']} — 即時技術數據】
-
-📊 價格
-現價: ${t['price']} | 變動: {t['change_pct']}% | 前收: ${t['prev_close']}
-52W範圍: ${t['52w_low']} - ${t['52w_high']}
-市值: {'${:,}'.format(t['market_cap']) if t['market_cap'] else 'N/A'}
-
-📈 均線
-{t['ma_arrangement']}
-MA20: ${t['ma20']} (斜率: {t['ma20_slope']}%/月)
-MA50: ${t['ma50']} (斜率: {t['ma50_slope']}%/月)
-MA200: ${t['ma200']}
-
-🔧 動量
-RSI(14): {t['rsi']} ({t['rsi_signal']})
-MACD: {t['macd_signal']} {t['macd_zero']} | 柱: {t['macd_histogram']}
-成交量: {t['volume']:,} | 20日均量: {t['avg_vol_20']:,} | 比: {t['vol_ratio']}x ({t['vol_signal']}){div_info}
-
-【分析要求】
-1. 趨勢判斷：基於均線排列及斜率，判斷當前趨勢方向
-2. 動能分析：RSI 位置 + MACD 信號，判斷短期動能
-3. 成交量驗證：放量/縮量是否支持當前趨勢
-4. 關鍵價位：計算真實支撐位（前低/MA50/MA200）和阻力位（前高/MA20）
-5. 除息影響：如有即將除淨，分析價格調整預期
-
-【強制輸出格式 — 嚴格遵守】
-評級：五選一（建倉買入/加倉買入/密切觀察/觀望/減倉賣出/清倉賣出）
-技術面：趨勢判斷 + RSI({t['rsi']}) + MACD({t['macd_signal']}) + 成交量({t['vol_signal']})
-關鍵價位：支撐 $X.XX-$X.XX | 阻力 $X.XX-$X.XX
-策略：具體入場區間（基於支撐位±1%）/ 目標價 / 止損位
-風險提示：{risk_str}
-
-注意：所有價位必須基於以上真實數據推算，不能憑空猜測。"""
-
-async def deepseek_analyze(t, prompt):
-    async with httpx.AsyncClient(timeout=120) as c:
-        try:
-            r = await c.post(
-                "https://api.deepseek.com/chat/completions",
-                headers={"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"},
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [
-                        {"role": "system", "content": "你是資深投資專家。用繁體中文。根據提供的真實技術指標進行分析，給出精確價位和可執行建議。"},
-                        {"role": "user", "content": prompt}
-                    ],
-                    "max_tokens": 2048
-                }
-            )
-            data = r.json()
-            txt = data["choices"][0]["message"]["content"]
-            rating = extract_rating(txt)
-            return {"content": txt, "rating": rating, "tech": t}
-        except Exception as e:
-            return {"content": f"Error: {e}", "rating": "觀望", "tech": t}
-
-def extract_rating(text):
-    m = re.search(r'【評級】[：:]\s*(.+)', text)
-    if m:
-        section = m.group(1)
-        for r in ("建倉買入","加倉買入","減倉賣出","清倉賣出","密切觀察","觀望"):
-            if r in section:
-                return r
-    matches = re.findall(r'(建倉買入|加倉買入|減倉賣出|清倉賣出|密切觀察|觀望)', text)
-    return matches[-1] if matches else "觀望"
-
-def save_report(d):
-    today = datetime.now()
-    t = d["tech"]
-    fn = f"{today:%Y%m%d}-{t['ticker']}.md"
-    
-    ticker = t['ticker']
-    content = f"""---
-ticker: {ticker}
-name: {t['name']}
-date: {today:%Y%m%d}
-type: stock-analysis
-rating: {d['rating']}
-price: {t['price']}
-change_pct: {t['change_pct']}
-ma20: {t['ma20']}
-ma50: {t['ma50']}
-ma200: {t['ma200']}
-rsi: {t['rsi']}
-macd: {t['macd_signal']}
-status: completed
-dividend_yield: {t['div_yield_pct']}
-ex_div_date: {t['ex_div_date']}
----
-
-# {ticker} {t['name']} — {today:%Y-%m-%d}
-
-## 技術指標
-| 指標 | 數值 |
-|------|:----:|
-| 現價 | ${t['price']} ({t['change_pct']:+.2f}%) |
-| MA20 | ${t['ma20']} |
-| MA50 | ${t['ma50']} |
-| MA200 | ${t['ma200']} |
-| 均線排列 | {t['ma_arrangement']} |
-| RSI(14) | {t['rsi']} ({t['rsi_signal']}) |
-| MACD | {t['macd_signal']} {t['macd_zero']} |
-| 成交量比 | {t['vol_ratio']}x ({t['vol_signal']}) |
-| 股息率 | {t['div_yield_pct']}%{' ' + div_info if d.get('div_info') else ''} |
-
-## AI 分析
-{d['content']}
-
----
-*數據來源：Yahoo Finance | DeepSeek AI 分析*
-"""
-
-    # Also collect for summary
-    d["content"] = d["content"][:200]
-
-    Path(TARGET_FOLDER).mkdir(parents=True, exist_ok=True)
-    Path(TARGET_FOLDER, fn).write_text(content, encoding="utf-8")
-
-INDEX_TICKERS = [
-    ("^HSI", "恒生指數", "HKD"),
-    ("^IXIC", "納斯達克", "USD"),
-    ("^GSPC", "標普500", "USD"),
-    ("^DJI", "道瓊斯", "USD"),
-]
-
-async def fetch_indices():
-    """Fetch market indices and save to vault."""
+async def analyze_all():
+    print("=== Stock Daily v4 ===")
     today = datetime.now()
     ts = f"{today:%Y%m%d}"
-    import yfinance as yf
+    print(f"Date: {today:%Y-%m-%d %H:%M}")
     
-    for ticker, name, currency in INDEX_TICKERS:
-        try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period="5d")
-            if hist.empty:
-                continue
-            close = hist["Close"]
-            current = close.iloc[-1]
-            prev = close.iloc[-2] if len(close) > 1 else current
-            change_pct = round((current - prev) / prev * 100, 2)
-            
-            content = f"""---
-type: index
-ticker: {ticker}
-name: {name}
-price: {round(current, 2)}
-change: {change_pct}
-currency: {currency}
-date: {ts}
----
-"""
-            Path(TARGET_FOLDER, f"index-{ticker.replace('^','')}.md").write_text(content)
-            print(f"  📊 {name}: {round(current,2)} ({change_pct:+.2f}%)")
-        except Exception as e:
-            print(f"  ⚠️ {name}: {e}")
-
-async def main():
-    print(f"🔄 {len(STOCKS)} 隻股票分析開始\n")
-    results = []
-    ratings_count = {}
-    div_alerts = []
-
-    for idx, (ticker, name, market) in enumerate(STOCKS, 1):
-        print(f"  [{idx}/{len(STOCKS)}] {ticker} {name}...", end=" ", flush=True)
+    # Cleanup
+    clean_duplicates()
+    
+    reports = []
+    rating_counts = {"建倉買入":0,"加倉買入":0,"密切觀察":0,"觀望":0,"減倉賣出":0,"清倉賣出":0}
+    div_alerts = []  # (ex_date, days_until, ticker, name)
+    
+    # Fetch indices first
+    print("\n--- Market Indices ---")
+    index_data = {}
+    for sym, name, key in INDICES:
+        price, chg = fetch_index_data(sym)
+        if price:
+            arrow = "🔺" if chg and chg >= 0 else "🔻"
+            print(f"{name}: {price} ({chg:+.2f}%)")
+            index_data[key] = (name, price, chg, arrow)
+    
+    # Process stocks
+    for ticker, name, region in STOCKS:
+        print(f"\n--- {ticker} {name} ---")
+        price, change_pct, indicators = fetch_stock_data(ticker)
+        if price is None:
+            print("No data, skipping")
+            continue
+        print(f"Price: {price}, Change: {change_pct}%")
+        print(f"MA20: {indicators['ma20']}, MA50: {indicators['ma50']}, MA200: {indicators['ma200']}")
+        print(f"RSI: {indicators['rsi14']}, MACD: {indicators['macd']}/{indicators['macd_signal']}")
         
-        tech, err = fetch_technical(ticker)
-        if err or not tech:
-            print(f"❌ {err or 'No data'}")
+        if indicators['rsi14'] is None:
+            print("Insufficient data, skipping")
             continue
         
-        prompt = build_prompt(tech)
-        d = await deepseek_analyze(tech, prompt)
-        save_report(d)
+        rating, analysis, action = analyze_with_deepseek(ticker, name, price, change_pct, indicators, region)
+        rating_counts[rating] = rating_counts.get(rating, 0) + 1
+        print(f"Rating: {rating}")
+        print(f"Action: {action}")
         
-        ratings_count[d["rating"]] = ratings_count.get(d["rating"], 0) + 1
+        # Check upcoming dividends (check if ex-div within 30 days)
+        try:
+            stock = yf.Ticker(ticker)
+            divs = stock.dividends
+            if not divs.empty:
+                last_div = divs.index[-1]
+                days_since = (pd.Timestamp.now(tz=last_div.tz) - last_div).days
+                # Estimate next ex-div for quarterly stocks (approx 91 days from last)
+                # Simpler: just note the last ex-div if within 30 days
+                if days_since > 60:  # Approaching next
+                    est_next = last_div + pd.Timedelta(days=91)
+                    dd = (est_next - pd.Timestamp.now(tz=last_div.tz)).days
+                    if 0 < dd <= 30:
+                        ex_date_str = est_next.strftime("%Y-%m-%d")
+                        div_alerts.append((ex_date_str, dd, ticker, name))
+        except:
+            pass
         
-        if tech["ex_div_date"]:
-            dd = (datetime.strptime(tech["ex_div_date"], "%Y-%m-%d").date() - date.today()).days
-            if dd >= 0 and dd <= 30:
-                div_alerts.append((tech["ex_div_date"], dd, ticker, name))
+        # Build frontmatter
+        price_ma20 = round(price - indicators['ma20'], 2) if indicators['ma20'] else 0
+        price_ma50 = round(price - indicators['ma50'], 2) if indicators['ma50'] else 0
+        price_ma200 = round(price - indicators['ma200'], 2) if indicators['ma200'] else 0
         
-        print(f"✅ → {d['rating']}")
-        await asyncio.sleep(0.3)  # rate limit
+        page = f"""---
+type: stock-analysis
+ticker: {ticker}
+name: "{name}"
+region: {region}
+date: {ts}
+price: {price}
+change_percent: {change_pct}
+ma20: {indicators['ma20']}
+ma50: {indicators['ma50']}
+ma200: {indicators['ma200']}
+price_ma20: {price_ma20}
+price_ma50: {price_ma50}
+price_ma200: {price_ma200}
+rsi14: {indicators['rsi14']}
+macd: {indicators['macd']}
+macd_signal: {indicators['macd_signal']}
+vol_ratio: {indicators['vol_ratio']}
+rating: {rating}
+---
+# {ticker} {name} — {today:%Y-%m-%d}
+| 指標 | 數值 |
+|------|:----:|
+| 現價 | {price} |
+| 變幅 | {change_pct:+.2f}% |
+| MA20 | {indicators['ma20']} |
+| MA50 | {indicators['ma50']} |
+| MA200 | {indicators['ma200']} |
+| 距離MA20 | {price_ma20:+.2f} |
+| 距離MA50 | {price_ma50:+.2f} |
+| 距離MA200 | {price_ma200:+.2f} |
+| RSI(14) | {indicators['rsi14']} |
+| MACD | {indicators['macd']} |
+| MACD Signal | {indicators['macd_signal']} |
+| 成交量比 | {indicators['vol_ratio']} |
 
-    # Fetch market indices
-    await fetch_indices()
-    
-    # Save summary
-    save_summary(results, ratings_count, div_alerts)
-    
-    # Cleanup: remove any *HK.md duplicates (from partial runs with wrong filename)
-    today_str = datetime.now().strftime("%Y%m%d")
-    for f in Path(TARGET_FOLDER).glob(f"{today_str}-*HK.md"):
-        f.unlink()
-        print(f"  🗑️ Cleaned duplicate: {f.name}")
+## AI 分析
+{analysis}
 
-    # Remove old monitor/reference files (dashboard reads live frontmatter)
-    for old_file in [f"{today_str}-股票監察名單.md", f"{today_str}-投資組合參考.md"]:
-        p = Path(TARGET_FOLDER, old_file)
-        if p.exists():
-            p.unlink()
+## Action
+**{rating}** — {action}
+"""
+        report_path = Path(TARGET_FOLDER, f"{ts}-{ticker}.md")
+        report_path.write_text(page, encoding="utf-8")
+        reports.append({"ticker":ticker, "name":name, "price":price, "change":change_pct,
+                        "rating":rating, "action":action})
     
-    # Generate watchlist from report frontmatter
+    # Save daily summary
+    Path(TARGET_FOLDER, f"{ts}-股票分析摘要.md").write_text(
+        _build_summary(today, rating_counts, reports, div_alerts, index_data), 
+        encoding="utf-8"
+    )
+    
+    # Save watchlist
     save_watchlist()
     
-    # Git push
-    try:
-        import subprocess
-        subprocess.run(["git", "-C", "/root/vault", "add", "."], capture_output=True, timeout=30)
-        subprocess.run(["git", "-C", "/root/vault", "commit", "-m", f"stock daily {datetime.now():%Y%m%d} v4"], capture_output=True, timeout=30)
-        subprocess.run(["git", "-C", "/root/vault", "push"], capture_output=True, timeout=60)
-        print("\n✅ Git push 完成")
-    except Exception as e:
-        print(f"\n⚠️ Git: {e}")
+    # Update main dashboard
+    update_dashboard(today, rating_counts, index_data, div_alerts)
+    
+    # Git
+    os.chdir("/root/vault")
+    os.system("git add -A")
+    os.system(f'git commit -m "stock daily v4: {today:%Y%m%d}" --allow-empty')
+    os.system("git push")
+    print("\n=== All done ===")
 
-def save_summary(results, ratings_count, div_alerts):
-    today = datetime.now()
+def _build_summary(today, ratings_count, reports, div_alerts, index_data):
+    """Build the daily analysis summary page"""
     rating_order = ["建倉買入","加倉買入","密切觀察","觀望","減倉賣出","清倉賣出"]
     
-    summary = f"""---
+    out = f"""---
 type: portfolio-summary
 date: {today:%Y%m%d}
 status: completed
+updated: {today:%Y-%m-%d %H:%M}
 ---
 
 # 📊 投資組合總覽 — {today:%Y-%m-%d}
 
-## 評級分佈
-| 評級 | 數量 |
-|------|:----:|
+> 📅 最後更新：{today:%Y-%m-%d} {today:%H:%M} HKT
+
+## 市場指數
+| 指數 | 最新 | 變幅 |
+|------|:---:|:----:|
 """
+    for key in ["HSI","IXIC","GSPC","DJI"]:
+        if key in index_data:
+            name, price, chg, arrow = index_data[key]
+            color = "🟢" if chg and chg >= 0 else "🔴"
+            out += f"| {color} {name} | {price:,.2f} | {chg:+.2f}% |\n"
+    
+    out += "\n## 評級分佈\n| 評級 | 數量 |\n|------|:----:|\n"
     for r in rating_order:
         count = ratings_count.get(r, 0)
-        summary += f"| {'🟢' if '買入' in r else '🟡' if '觀察' in r or '觀望' in r else '🔴'} {r} | {count} |\n"
+        emoji = "🟢" if "買入" in r else "🟡" if "觀察" in r or "觀望" in r else "🔴"
+        out += f"| {emoji} {r} | {count} |\n"
     
     if div_alerts:
-        summary += "\n## 📅 即將除淨\n"
+        out += "\n## 📅 即將除淨\n"
         for ex_dt, dd, ticker, name in sorted(div_alerts, key=lambda x: x[1]):
             emoji = "🔥🔥" if dd <= 7 else "🔥" if dd <= 30 else "📅"
-            summary += f"- {emoji} **{ticker}** {name} — {ex_dt}（{dd}天後）\n"
+            out += f"- {emoji} **{ticker}** {name} — {ex_dt}（{dd}天後）\n"
     
-    Path(TARGET_FOLDER, f"{today:%Y%m%d}-股票分析摘要.md").write_text(summary, encoding="utf-8")
-
-STOCK_NAMES = {
-    "0005.HK":"匯豐控股","0006.HK":"電能實業","0267.HK":"中信股份",
-    "0270.HK":"粵海投資","0363.HK":"上海實業","0669.HK":"創科實業",
-    "0823.HK":"領展房產基金","0883.HK":"中國海洋石油","0941.HK":"中國移動",
-    "2388.HK":"中銀香港","2800.HK":"盈富基金","3466.HK":"香港高息股ETF",
-    "3988.HK":"中國銀行","6823.HK":"香港電訊",
-    "JPM":"摩根大通","ABBV":"艾伯維","CVX":"雪佛龍","O":"Realty Income","VZ":"Verizon",
-}
+    out += "\n## 今日分析\n"
+    icon = {"建倉買入":"🟢","加倉買入":"🟢","密切觀察":"🟡","觀望":"⚪","減倉賣出":"🔴","清倉賣出":"🔴"}
+    for r in reports:
+        if r["rating"] in ("建倉買入","加倉買入"):
+            bg = "background:#d4edda"
+        elif r["rating"] in ("密切觀察","觀望"):
+            bg = "background:#fff3cd"
+        else:
+            bg = "background:#f8d7da"
+        out += f"<div style='{bg};padding:8px;border-radius:4px;margin:4px 0'>"
+        out += f"**{icon[r['rating']]} {r['ticker']} {r['name']}** — {r['price']} ({r['change']:+.2f}%) — {r['action']}"
+        out += "</div>\n"
+    
+    out += "\n## 股票總表\n| 股票 | 名稱 | 現價 | 變幅 | 評級 |\n|------|------|:---:|:----:|:----:|\n"
+    for r in reports:
+        emoji = icon.get(r["rating"], "⚪")
+        out += f"| {r['ticker']} | {r['name']} | {r['price']} | {r['change']:+.2f}% | {emoji} {r['rating']} |\n"
+    
+    return out
 
 def save_watchlist():
     today = datetime.now()
@@ -442,52 +365,143 @@ def save_watchlist():
         m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
         if not m: continue
         fm = {}
-        for line in m.group(1).split("\n"):
+        for line in m.group(1).strip().split("\n"):
             if ":" in line:
                 k, v = line.split(":", 1)
-                fm[k.strip()] = v.strip().strip("\"'")
-        if not fm.get("ticker"): continue
-        t = fm["ticker"]
+                fm[k.strip()] = v.strip().strip('"').strip("'")
+        ticker = fm.get("ticker","")
+        name = fm.get("name","")
+        price = fm.get("price","?")
+        change = fm.get("change_percent","")
+        rating = fm.get("rating","觀望")
+        rsi14 = fm.get("rsi14","")
+        ma20 = fm.get("ma20","")
+        ma50 = fm.get("ma50","")
+        ma200 = fm.get("ma200","")
+        action_text = ""
+        lines = text.split("\n")
+        for i, line in enumerate(lines):
+            if line.startswith("## Action"):
+                if i + 1 < len(lines):
+                    action_text = lines[i + 1].strip()
+                break
         stocks.append({
-            "ticker": t,
-            "name": STOCK_NAMES.get(t, fm.get("name", t)),
-            "price": fm.get("price", "N/A"),
-            "rating": fm.get("rating", "觀望"),
-            "rsi": fm.get("rsi", ""),
-            "ma20": fm.get("ma20", ""),
-            "ma50": fm.get("ma50", ""),
+            "ticker": ticker, "name": name, "price": price,
+            "change": f"{float(change):+.2f}%" if change else "",
+            "rating": rating, "rs": rsi14, "ma20": ma20, "ma50": ma50, "ma200": ma200,
+            "action": action_text
         })
     
-    stocks.sort(key=lambda s: rating_order.get(s["rating"], 99))
-    hk = [s for s in stocks if s["ticker"].endswith(".HK")]
-    us = [s for s in stocks if not s["ticker"].endswith(".HK")]
+    stocks.sort(key=lambda x: (rating_order.get(x["rating"], 9), x["ticker"]))
     
-    def table_rows(items):
-        rows = ""
-        for s in items:
-            ic = icon.get(s["rating"], "⚪")
-            rows += f"| {s['ticker']} | {s['name']} | {s['price']} | {ic} {s['rating']} | {s['rsi']} | {s['ma20']}/{s['ma50']} |\n"
-        return rows
-    
-    content = f"""---
+    out = f"""---
 type: watchlist
 date: {ts}
-status: completed
+updated: {today:%Y-%m-%d %H:%M}
 ---
 
-# 股票監察名單 — {today:%Y-%m-%d}
+# 📋 股票監察名單 — {today:%Y-%m-%d}
 
-## 港股 ({len(hk)}隻)
-| 股票 | 名稱 | 收市價 | 評級 | RSI | MA20/50 |
-|------|------|:------:|:----:|:---:|:-------:|
-{table_rows(hk)}
-## 美股 ({len(us)}隻)
-| 股票 | 名稱 | 收市價 | 評級 | RSI | MA20/50 |
-|------|------|:------:|:----:|:---:|:-------:|
-{table_rows(us)}"""
+> 按評級排列，6 個等級：🟢建倉買入 → 🟢加倉買入 → 🟡密切觀察 → ⚪觀望 → 🔴減倉賣出 → 🔴清倉賣出
+
+| 評級 | 股票 | 名稱 | 現價 | 變幅 | RSI | MA20 | MA50 | MA200 |
+|:----:|:----:|:----:|:---:|:----:|:---:|:----:|:----:|:-----:|
+"""
+    for s in stocks:
+        ik = icon.get(s["rating"], "⚪")
+        out += f"| {ik} | {s['ticker']} | {s['name']} | {s['price']} | {s['change']} | {s['rs']} | {s['ma20']} | {s['ma50']} | {s['ma200']} |\n"
     
-    Path(TARGET_FOLDER, f"{ts}-股票監察名單.md").write_text(content, encoding="utf-8")
-    print(f"  📋 股票監察名單已生成")
+    out += "\n## 詳細 Action Items\n"
+    curr_rating = None
+    for s in stocks:
+        if s["rating"] != curr_rating:
+            curr_rating = s["rating"]
+            out += f"\n### {icon.get(curr_rating, '⚪')} {curr_rating}\n"
+        out += f"- **{s['ticker']}** {s['name']} — {s['action']}\n"
+    
+    Path(TARGET_FOLDER, f"{ts}-股票監察名單.md").write_text(out, encoding="utf-8")
 
+def update_dashboard(today, ratings_count, index_data, div_alerts):
+    """Update the main 01_投資組合總覽.md dashboard"""
+    rating_order = ["建倉買入","加倉買入","密切觀察","觀望","減倉賣出","清倉賣出"]
+    
+    # Count stocks per rating across TODAY's reports
+    ts = f"{today:%Y%m%d}"
+    report_files = [f for f in Path(TARGET_FOLDER).glob(f"{ts}-*.md")
+                    if f.name not in ("股票分析摘要.md","股票分析框架.md","股息日曆.md")]
+    
+    dashboard = f"""---
+cssclasses:
+  - dashboard
+type: portfolio-summary
+date: {ts}
+updated: {today:%Y-%m-%d %H:%M}
+---
+
+# 🏛️ 投資組合總覽
+
+> 📅 最後更新：{today:%Y-%m-%d} {today:%H:%M} HKT
+
+```dataviewjs
+// 格價 Dashboard Link
+dv.span('<a href="02-Wiki/格價儀錶板.md" style="background:#4a90d9;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">🛒 格價 Dashboard</a>')
+dv.span(' ')
+dv.span('<a href="02-Wiki/02_個股分析.md" style="background:#7c3aed;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">📈 個股分析</a>')
+dv.span(' ')
+dv.span('<a href="02-Wiki/Stocks/{ts}-股票監察名單.md" style="background:#e67e22;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">📋 股票監察名單</a>')
+```
+"""
+    
+    # Market indices
+    dashboard += "\n## 🌍 市場指數\n"
+    dashboard += "| 指數 | 最新 | 變幅 |\n|------|:---:|:----:|\n"
+    for key in ["HSI","IXIC","GSPC","DJI"]:
+        if key in index_data:
+            name, price, chg, arrow = index_data[key]
+            color = "🟢" if chg and chg >= 0 else "🔴"
+            dashboard += f"| {color} {name} | {price:,.2f} | {chg:+.2f}% |\n"
+    
+    # Rating distribution
+    dashboard += "\n## 📊 評級分佈\n"
+    total = sum(ratings_count.values()) or 1
+    for r in rating_order:
+        cnt = ratings_count.get(r, 0)
+        pct = round(cnt / total * 100)
+        bar = "█" * pct + "░" * (10 - pct) if pct <= 10 else "█" * 10
+        emoji = "🟢" if "買入" in r else "🟡" if "觀察" in r or "觀望" in r else "🔴"
+        dashboard += f"- {emoji} **{r}**: {cnt} 隻 `{bar}`\n"
+    
+    # Div alerts
+    if div_alerts:
+        dashboard += "\n## 📅 即將除淨\n"
+        for ex_dt, dd, ticker, name in sorted(div_alerts, key=lambda x: x[1]):
+            emoji = "🔥🔥" if dd <= 7 else "🔥" if dd <= 30 else "📅"
+            dashboard += f"- {emoji} **{ticker}** {name} — {ex_dt}（{dd}天後）\n"
+    
+    # Dataview table pulling from today's stock reports
+    dashboard += f"""
+## 📈 今日分析
+```dataview
+TABLE 
+    choice(rating="建倉買入" or rating="加倉買入", "🟢", 
+           choice(rating="密切觀察" or rating="觀望", "🟡", "🔴")) + " " + rating AS "評級",
+    price AS "現價",
+    change_percent + "%" AS "變幅",
+    rsi14 AS "RSI(14)",
+    ma20 AS "MA20",
+    ma50 AS "MA50",
+    choice(rating="建倉買入" or rating="加倉買入", "✅ 買入機會", 
+           choice(rating="密切觀察", "👀 等信號",
+           choice(rating="觀望", "⏸️ 暫時不動", "⚠️ 減持"))) AS "建議"
+FROM "02-Wiki/Stocks/{ts}"
+WHERE type = "stock-analysis"
+SORT choice(rating="建倉買入", 0, rating="加倉買入", 1, rating="密切觀察", 2, rating="觀望", 3, rating="減倉賣出", 4, 5) ASC
+```
+"""
+    
+    Path("/root/vault/02-Wiki/01_投資組合總覽.md").write_text(dashboard, encoding="utf-8")
+
+# === Main ===
 if __name__ == "__main__":
-    asyncio.run(main())
+    import asyncio
+    asyncio.run(analyze_all())
