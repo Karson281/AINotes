@@ -234,7 +234,7 @@ def extract_rating(text):
 def save_report(d):
     today = datetime.now()
     t = d["tech"]
-    fn = f"{today:%Y%m%d}-{t['ticker'].replace('.','')}.md"
+    fn = f"{today:%Y%m%d}-{t['ticker']}.md"
     
     ticker = t['ticker']
     content = f"""---
