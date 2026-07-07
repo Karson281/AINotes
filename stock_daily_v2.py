@@ -7,7 +7,17 @@ import numpy as np
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
-DEEPSEEK_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+DEEPSEEK_KEY = os.environ.get("DEEPSEEK_KEY", os.environ.get("DEEPSEEK_API_KEY", ""))
+if not DEEPSEEK_KEY:
+    # Try reading from .env
+    env_path = "/root/.env"
+    if os.path.exists(env_path):
+        for line in open(env_path):
+            if "DEEPSEEK_API_KEY" in line or "DEEPSEEK_KEY" in line:
+                m = re.match(r'(?:export\s+)?(?:DEEPSEEK_API_KEY|DEEPSEEK_KEY)=["\']?([^"\'\n]+)', line)
+                if m:
+                    DEEPSEEK_KEY = m.group(1).strip()
+                    break
 WATCHLIST_FILE = "/root/vault/stock-watchlist.json"
 TARGET_FOLDER = "/root/vault/02-Wiki/Stocks"
 
@@ -234,7 +244,7 @@ def extract_rating(text):
 def save_report(d):
     today = datetime.now()
     t = d["tech"]
-    fn = f"{today:%Y%m%d}-{t['ticker'].replace('.','')}.md"
+    fn = f"{today:%Y%m%d}-{t['ticker']}.md"
     
     ticker = t['ticker']
     content = f"""---
