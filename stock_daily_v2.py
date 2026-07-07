@@ -293,6 +293,45 @@ ex_div_date: {t['ex_div_date']}
     Path(TARGET_FOLDER).mkdir(parents=True, exist_ok=True)
     Path(TARGET_FOLDER, fn).write_text(content, encoding="utf-8")
 
+INDEX_TICKERS = [
+    ("^HSI", "恒生指數", "HKD"),
+    ("^IXIC", "納斯達克", "USD"),
+    ("^GSPC", "標普500", "USD"),
+    ("^DJI", "道瓊斯", "USD"),
+]
+
+async def fetch_indices():
+    """Fetch market indices and save to vault."""
+    today = datetime.now()
+    ts = f"{today:%Y%m%d}"
+    import yfinance as yf
+    
+    for ticker, name, currency in INDEX_TICKERS:
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period="5d")
+            if hist.empty:
+                continue
+            close = hist["Close"]
+            current = close.iloc[-1]
+            prev = close.iloc[-2] if len(close) > 1 else current
+            change_pct = round((current - prev) / prev * 100, 2)
+            
+            content = f"""---
+type: index
+ticker: {ticker}
+name: {name}
+price: {round(current, 2)}
+change: {change_pct}
+currency: {currency}
+date: {ts}
+---
+"""
+            Path(TARGET_FOLDER, f"index-{ticker.replace('^','')}.md").write_text(content)
+            print(f"  📊 {name}: {round(current,2)} ({change_pct:+.2f}%)")
+        except Exception as e:
+            print(f"  ⚠️ {name}: {e}")
+
 async def main():
     print(f"🔄 {len(STOCKS)} 隻股票分析開始\n")
     results = []
@@ -321,8 +360,26 @@ async def main():
         print(f"✅ → {d['rating']}")
         await asyncio.sleep(0.3)  # rate limit
 
+    # Fetch market indices
+    await fetch_indices()
+    
     # Save summary
     save_summary(results, ratings_count, div_alerts)
+    
+    # Cleanup: remove any *HK.md duplicates (from partial runs with wrong filename)
+    today_str = datetime.now().strftime("%Y%m%d")
+    for f in Path(TARGET_FOLDER).glob(f"{today_str}-*HK.md"):
+        f.unlink()
+        print(f"  🗑️ Cleaned duplicate: {f.name}")
+
+    # Remove old monitor/reference files (dashboard reads live frontmatter)
+    for old_file in [f"{today_str}-股票監察名單.md", f"{today_str}-投資組合參考.md"]:
+        p = Path(TARGET_FOLDER, old_file)
+        if p.exists():
+            p.unlink()
+    
+    # Generate watchlist from report frontmatter
+    save_watchlist()
     
     # Git push
     try:
@@ -361,6 +418,76 @@ status: completed
             summary += f"- {emoji} **{ticker}** {name} — {ex_dt}（{dd}天後）\n"
     
     Path(TARGET_FOLDER, f"{today:%Y%m%d}-股票分析摘要.md").write_text(summary, encoding="utf-8")
+
+STOCK_NAMES = {
+    "0005.HK":"匯豐控股","0006.HK":"電能實業","0267.HK":"中信股份",
+    "0270.HK":"粵海投資","0363.HK":"上海實業","0669.HK":"創科實業",
+    "0823.HK":"領展房產基金","0883.HK":"中國海洋石油","0941.HK":"中國移動",
+    "2388.HK":"中銀香港","2800.HK":"盈富基金","3466.HK":"香港高息股ETF",
+    "3988.HK":"中國銀行","6823.HK":"香港電訊",
+    "JPM":"摩根大通","ABBV":"艾伯維","CVX":"雪佛龍","O":"Realty Income","VZ":"Verizon",
+}
+
+def save_watchlist():
+    today = datetime.now()
+    ts = f"{today:%Y%m%d}"
+    rating_order = {"建倉買入":0,"加倉買入":1,"密切觀察":2,"觀望":3,"減倉賣出":4,"清倉賣出":5}
+    icon = {"建倉買入":"🟢","加倉買入":"🟢","密切觀察":"🟡","觀望":"⚪","減倉賣出":"🔴","清倉賣出":"🔴"}
+    
+    stocks = []
+    for f in sorted(Path(TARGET_FOLDER).glob(f"{ts}-*.md")):
+        if f.name in ("股票分析摘要.md","股票分析框架.md","股息日曆.md"):
+            continue
+        text = f.read_text(encoding="utf-8")
+        m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+        if not m: continue
+        fm = {}
+        for line in m.group(1).split("\n"):
+            if ":" in line:
+                k, v = line.split(":", 1)
+                fm[k.strip()] = v.strip().strip("\"'")
+        if not fm.get("ticker"): continue
+        t = fm["ticker"]
+        stocks.append({
+            "ticker": t,
+            "name": STOCK_NAMES.get(t, fm.get("name", t)),
+            "price": fm.get("price", "N/A"),
+            "rating": fm.get("rating", "觀望"),
+            "rsi": fm.get("rsi", ""),
+            "ma20": fm.get("ma20", ""),
+            "ma50": fm.get("ma50", ""),
+        })
+    
+    stocks.sort(key=lambda s: rating_order.get(s["rating"], 99))
+    hk = [s for s in stocks if s["ticker"].endswith(".HK")]
+    us = [s for s in stocks if not s["ticker"].endswith(".HK")]
+    
+    def table_rows(items):
+        rows = ""
+        for s in items:
+            ic = icon.get(s["rating"], "⚪")
+            rows += f"| {s['ticker']} | {s['name']} | {s['price']} | {ic} {s['rating']} | {s['rsi']} | {s['ma20']}/{s['ma50']} |\n"
+        return rows
+    
+    content = f"""---
+type: watchlist
+date: {ts}
+status: completed
+---
+
+# 股票監察名單 — {today:%Y-%m-%d}
+
+## 港股 ({len(hk)}隻)
+| 股票 | 名稱 | 收市價 | 評級 | RSI | MA20/50 |
+|------|------|:------:|:----:|:---:|:-------:|
+{table_rows(hk)}
+## 美股 ({len(us)}隻)
+| 股票 | 名稱 | 收市價 | 評級 | RSI | MA20/50 |
+|------|------|:------:|:----:|:---:|:-------:|
+{table_rows(us)}"""
+    
+    Path(TARGET_FOLDER, f"{ts}-股票監察名單.md").write_text(content, encoding="utf-8")
+    print(f"  📋 股票監察名單已生成")
 
 if __name__ == "__main__":
     asyncio.run(main())
