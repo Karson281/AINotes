@@ -20,6 +20,7 @@ services:
       - N8N_DEFAULT_TIMEZONE=Asia/Hong_Kong
       - N8N_METRICS=false
       - N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
 
     # ── Volume：SQLite database 持久化 ──
     volumes:
