@@ -1,0 +1,87 @@
+{
+  "name": "TG 達人 Bot (Polling)",
+  "nodes": [
+    {
+      "id": "cron-trigger",
+      "name": "Every 8s",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "parameters": {
+        "mode": "everyXMinutes",
+        "value": 0.133
+      }
+    },
+    {
+      "id": "code-getupdates",
+      "name": "Get Updates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [300, 300],
+      "parameters": {
+        "jsCode": "const https = require('https');\n\nconst token = '8644362320:AAGBd0QkQ1q5tMTjY3v60rz-ESfPBLSXerY';\nconst lastId = $workflow.staticData.lastUpdateId || 0;\n\nconst response = await new Promise((resolve, reject) => {\n  https.get(`https://api.telegram.org/bot${token}/getUpdates?offset=${lastId}&timeout=8`, (res) => {\n    let data = '';\n    res.on('data', chunk => data += chunk);\n    res.on('end', () => {\n      try { resolve(JSON.parse(data)); }\n      catch(e) { reject(e); }\n    });\n  }).on('error', reject);\n});\n\nif (!response.ok || !response.result || response.result.length === 0) {\n  return [{ json: { _empty: true } }];\n}\n\nlet maxId = lastId;\nconst results = [];\n\nfor (const update of response.result) {\n  const msg = update.message || {};\n  const chatId = msg.chat?.id;\n  const text = (msg.text || '').trim();\n  if (!chatId || !text || text.startsWith('/')) continue;\n  maxId = Math.max(maxId, update.update_id);\n  results.push({ json: { chatId: chatId, text: text } });\n}\n\n$workflow.staticData.lastUpdateId = maxId;\nreturn results.length > 0 ? results : [{ json: { _empty: true } }];"
+      }
+    },
+    {
+      "id": "if-has-msg",
+      "name": "Has Msg?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "parameters": {
+        "conditions": {
+          "conditions": [{
+            "id": "chk",
+            "leftValue": "={{ $json._empty }}",
+            "rightValue": true,
+            "operator": { "type": "boolean", "operation": "notEqual" }
+          }],
+          "combinator": "and",
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 1 }
+        }
+      }
+    },
+    {
+      "id": "code-deepseek",
+      "name": "DeepSeek",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [900, 248],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst userText = item.text;\nconst chatId = item.chatId;\n\nconst https = require('https');\nconst apiKey = 'sk-c1oBlJYioPC8t5h72a0cTc5u3hUkcnJcHjRk0zy9o320W4pG';\n\nconst sysPrompt = '你係信用卡達人 + 搵工達人 + 補習老師。三大功能：\\n【信用卡】精通香港各銀行信用卡年費、回贈、里數、優惠、迎新。\\n【搵工】提供香港招聘資訊、求職建議、CV tips、面試技巧。\\n【補習】教小學生做功課，用簡單方法解釋概念，鼓勵思考。\\n回答簡潔準確，用廣東話/繁體中文，200字以內。';\n\nconst payload = JSON.stringify({\n  model: 'deepseek-v4-flash',\n  messages: [\n    { role: 'system', content: sysPrompt },\n    { role: 'user', content: userText }\n  ],\n  max_tokens: 600,\n  temperature: 0.7\n});\n\nconst response = await new Promise((resolve, reject) => {\n  const req = https.request({\n    hostname: 'api.deepseek.com', path: '/v1/chat/completions', method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey }\n  }, (res) => {\n    let data = '';\n    res.on('data', chunk => data += chunk);\n    res.on('end', () => {\n      try { resolve(JSON.parse(data)); }\n      catch(e) { reject(new Error('parse: ' + data.slice(0,200))); }\n    });\n  });\n  req.on('error', reject);\n  req.write(payload);\n  req.end();\n});\n\nconst reply = response?.choices?.[0]?.message?.content || '唔好意思，處理唔到。';\nreturn [{ json: { chatId: chatId, reply: reply } }];"
+      }
+    },
+    {
+      "id": "telegram-send",
+      "name": "Send Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1200, 248],
+      "credentials": {
+        "telegramApi": { "id": "2Cmg8Po6cAE3jl0t", "name": "Telegram account" }
+      },
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.reply }}",
+        "additionalFields": { "parse_mode": "Markdown" },
+        "sendInput": false
+      }
+    }
+  ],
+  "connections": {
+    "Every 8s": { "main": [[{"node": "Get Updates", "type": "main", "index": 0}]] },
+    "Get Updates": { "main": [[{"node": "Has Msg?", "type": "main", "index": 0}]] },
+    "Has Msg?": {
+      "main": [
+        [{"node": "DeepSeek", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "DeepSeek": { "main": [[{"node": "Send Reply", "type": "main", "index": 0}]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["telegram", "bot", "auto-reply"],
+  "pinData": {}
+}
