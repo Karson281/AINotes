@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """每日股票分析 v4 — Real Technical Indicators + DeepSeek Interpretation"""
-import asyncio, httpx, json, re, os, sys
+import asyncio, glob, httpx, json, re, os, sys
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -19,6 +19,19 @@ if not DEEPSEEK_KEY:
                     break
 WATCHLIST_FILE = "/root/vault/stock-watchlist.json"
 TARGET_FOLDER = "/root/vault/02-Wiki/Stocks"
+
+# === Pre-check: skip if today's reports already exist ===
+TODAY = datetime.now().strftime("%Y%m%d")
+EXISTING = sorted(glob.glob(f"{TARGET_FOLDER}/{TODAY}-*.md"))
+# Filter out non-stock files (summary, watchlist, etc.)
+EXISTING = [f for f in EXISTING if not any(
+    skip in f for skip in ["股票分析摘要", "股票監察名單", "股票分析框架", "股息日曆"]
+)]
+if len(EXISTING) >= 15:
+    print(f"✅ 今日已有 {len(EXISTING)} 份報告，跳過分析")
+    sys.exit(0)
+else:
+    print(f"⚠️ 今日只有 {len(EXISTING)} 份報告，開始補齊...")
 
 STOCKS = [
     ("0005.HK","匯豐控股","HK"), ("0006.HK","電能實業","HK"),
@@ -297,6 +310,30 @@ rating: {rating}
     os.system(f'git commit -m "stock daily v4: {today:%Y%m%d}" --allow-empty')
     os.system("git push")
     print("\n=== All done ===")
+    
+    # === Auto-complete Kanban card (監察系統) ===
+    # After successful analysis, find any running/blocked stock-worker card for today
+    # and mark it complete — ensures cards don't sit blocked when reports exist on disk
+    try:
+        import json, subprocess
+        resp = subprocess.run(["hermes", "kanban", "list", "--json"],
+                              capture_output=True, text=True, timeout=10)
+        if resp.returncode == 0:
+            data = json.loads(resp.stdout)
+            tasks = data if isinstance(data, list) else data.get("tasks", [])
+            card_date = today.strftime("%Y%m%d")
+            for t in tasks:
+                assignee = t.get("assignee", "")
+                status = t.get("status", "")
+                title = t.get("title", "")
+                tid = t.get("id", t.get("task_id", ""))
+                if assignee == "stock-worker" and status in ("running", "blocked"):
+                    if card_date in title:
+                        subprocess.run(["hermes", "kanban", "complete", tid],
+                                       capture_output=True, timeout=10)
+                        print(f"✅ Auto-completed Kanban card {tid}: {title}")
+    except Exception as e:
+        print(f"⚠️  Auto-complete check failed: {e}")
 
 def _build_summary(today, ratings_count, reports, div_alerts, index_data):
     """Build the daily analysis summary page"""

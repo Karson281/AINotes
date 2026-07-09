@@ -15,7 +15,7 @@ services:
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
       - N8N_EXECUTIONS_DATA_PRUNE=true
       - N8N_EXECUTIONS_DATA_MAX_AGE=168          # 保留 7 日 execution history
-      - WEBHOOK_URL=${WEBHOOK_URL:-}
+      - WEBHOOK_URL=https://n8n.tatyan.com
       - GENERIC_TIMEZONE=Asia/Hong_Kong
       - N8N_DEFAULT_TIMEZONE=Asia/Hong_Kong
       - N8N_METRICS=false
