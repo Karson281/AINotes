@@ -12,7 +12,7 @@
 ┌─────────────────────────────────────────────────┐
 │                    Telegram                       │
 │         新 Bot (n8n 專用，獨立 Token)             │
-│         舊 Bot (Hermes 專用，格價 + 閒聊)         │
+│         舊 Bot (Hermes 專用，格價+閒聊+股票)      │
 └──────────────────────┬──────────────────────────┘
                        │ Webhook
                        ▼
@@ -57,7 +57,8 @@
              ▼
 ┌─────────────────────────────────────────┐
 │ Step 2: n8n 讀取 Vault 咭片              │
-│  FILTER: active=Y, 日期有效, 回贈率>0    │
+│  FILTER: active=Y, 日期有效              │
+│  IF amount < $1300 → 排除 spend_min>0   │
 └────────────┬────────────────────────────┘
              ▼
 ┌─────────────────────────────────────────┐
@@ -81,27 +82,69 @@
 
 ### 1.2 消費模式 — 七大場景
 
-| 模式 | 英文 key | 觸發條件 | 例子 |
-|:---|:---|:---|:---|
-| 本地餐飲 | `local_dining` | 香港餐廳、食肆、快餐、茶記 | 「大家樂 $50」 |
-| 本地非餐飲 | `local_retail` | 香港購物、超市、油站、服務 | 「萬寧 $80」「ESSO 入油」 |
-| 本地網購 | `local_online` | 香港網上商店 | 「HKTVmall $500」 |
-| 外幣網購 | `overseas_online` | 外國網站、USD/EUR 結算 | 「Amazon US $200 USD」 |
-| 外地簽帳 | `overseas_pos` | 海外實體店 | 「日本藥妝店 ¥5000」 |
-| 內地簽帳 | `cn_pos` | 深圳、廣州 CNY 結算 | 「深圳食飯 ¥300」 |
-| 機票酒店 | `travel` | 航空公司、酒店、OTA | 「Agoda 訂東京酒店」 |
+| 模式    | 英文 key            | 觸發條件            | 例子                   |
+| :---- | :---------------- | :-------------- | :------------------- |
+| 本地餐飲  | `local_dining`    | 香港餐廳、食肆、快餐、茶記   | 「大家樂 $50」            |
+| 本地非餐飲 | `local_retail`    | 香港購物、超市、油站、服務   | 「萬寧 $80」「ESSO 入油」    |
+| 本地網購  | `local_online`    | 香港網上商店          | 「HKTVmall $500」      |
+| 外幣網購  | `overseas_online` | 外國網站、USD/EUR 結算 | 「Amazon US $200 USD」 |
+| 外地簽帳  | `overseas_pos`    | 海外實體店           | 「日本藥妝店 ¥5000」        |
+| 內地簽帳  | `cn_pos`          | 深圳、廣州 CNY 結算    | 「深圳食飯 ¥300」          |
+| 機票酒店  | `travel`          | 航空公司、酒店、OTA     | 「Agoda 訂東京酒店」        |
 
 ### 1.3 查詢範例全覆蓋
 
-| # | 用戶提問 | spend_mode | merchant | 預期結果 |
-|:---|:---|:---|:---|:---|
-| 1 | 「$1500 網購用邊張卡？」 | local_online | null | DBS Live Fresh 6% = $90 |
-| 2 | 「萬寧 $80 點俾？」 | local_retail | 萬寧 | Citi Cash Back (星期五 5%) vs HSBC EveryMile |
-| 3 | 「深圳 $500 食飯」 | cn_pos | null | BOC Chill + 雲閃付 疊加 ~10% |
-| 4 | 「Amazon US $200 USD 電子產品」 | overseas_online | null | DBS Live Fresh 6% - 1.95% fee |
-| 5 | 「ESSO 入油 $800 星期五」 | local_retail | ESSO | Citi Cash Back 獨家 -$2/L |
-| 6 | 「用 BOC Pay 俾錢，邊張最抵？」 | (由 AI 判斷) | null | 只掃 bocpay=Y 嘅卡 |
-| 7 | 「日本旅行機票 $6000」 | travel | null | HSBC EveryMile HK$2=1mile |
+| #   | 用戶提問                      | spend_mode      | merchant | 預期結果                                      |
+| :-- | :------------------------ | :-------------- | :------- | :---------------------------------------- |
+| 1   | 「$1500 網購用邊張卡？」           | local_online    | null     | DBS Live Fresh 6% = $90                   |
+| 2   | 「萬寧 $80 點俾？」              | local_retail    | 萬寧       | Citi Cash Back (星期五 5%) vs HSBC EveryMile |
+| 3   | 「深圳 $500 食飯」              | cn_pos          | null     | BOC Chill + 雲閃付 疊加 ~10%                   |
+| 4   | 「Amazon US $200 USD 電子產品」 | overseas_online | null     | DBS Live Fresh 6% - 1.95% fee             |
+| 5   | 「ESSO 入油 $800 星期五」        | local_retail    | ESSO     | Citi Cash Back 獨家 -$2/L                   |
+| 6   | 「用 BOC Pay 俾錢，邊張最抵？」      | (由 AI 判斷)       | null     | 只掃 bocpay=Y 嘅卡                            |
+| 7   | 「日本旅行機票 $6000」            | travel          | null     | HSBC EveryMile HK$2=1mile                 |
+
+### 1.4 消費下限 $1,300 分界規則（重要）
+
+```
+用戶消費金額
+    │
+    ├─ < $1,300 → 排除所有 spend_min > 0 的咭片
+    │   （呢啲卡有最低消費要求，細額簽帳根本唔會達標）
+    │
+    └─ ≥ $1,300 → 納入有 spend_min 的咭片
+        但只推薦 spend_min ≤ 消費金額 的卡
+        （未達最低消費的仍然排除）
+```
+
+**例子**：
+- 用戶 $500 網購 → 排除 AE Platinum（spend_min=$0，但此卡網購回贈低，自然排名低）
+- 用戶 $3,000 海外簽帳 → 納入所有卡，但 spend_min=$5,000 的卡仍排除（未達標）
+
+### 1.5 外幣簽帳規則 — DCC 陷阱防護
+
+```
+外幣簽帳 (overseas_pos) 或外幣網購 (overseas_online)
+    → AI 必須提醒用戶：
+       「⚠️ 必須用當地貨幣結算，拒絕 DCC（動態貨幣轉換）。
+         否則會被收取額外 3-5% 手續費 + 喪失外幣回贈資格。」
+    
+本地網購 (local_online)
+    → AI 必須提醒：
+       「先確認商戶是香港註冊，才用港幣結算。
+        外國網站（如 Amazon US）= overseas_online，唔係 local_online。」
+```
+
+### 1.6 特殊回贈條件處理
+
+部分咭片有非常規回贈規則，不能單靠 `rate%` 表達。在 `special_rules` 欄位描述，AI 需在推薦時引用：
+
+```yaml
+special_rules:
+  - "BOC Pay：每月 8 日、18 日、28 日積分抵扣 85 折"
+  - "指定商戶消費需主動登記優惠才生效"
+  - "回贈以里數計算，非現金（HK$2 = 1 mile）"
+```
 
 ---
 
@@ -144,13 +187,14 @@
 
 ## Part 4: 角色分工
 
-| 角色 | 實體 | 負責 |
-|:---|:---|:---|
-| **人類決策者** | Karson | 定義需求、提供數據、最終審批 |
-| **CEO 監察** | Proma (Pro) | 架構設計、品質評鑑、危機處理、監察 compliance |
-| **Manager 執行** | Hermes (Flash) | n8n workflow 建立、VPS infra、Telegram Bot 管理 |
-| **Secretary 自動化** | n8n (Flash) | Telegram 路由、信用咭查詢、HR 排程、旅行推薦 |
-| **知識庫** | Obsidian Vault | 咭片數據、求職記錄、旅行偏好 |
+| 角色                | 實體             | 負責                                        |
+| :---------------- | :------------- | :---------------------------------------- |
+| **人類決策者**         | Karson         | 定義需求、提供咭片 raw data（~20 張）、最終審批              |
+| **CEO 監察**        | Proma (Pro)    | 架構設計、品質評鑑、危機處理、監察 compliance              |
+| **Manager 執行**    | Hermes (Flash) | n8n workflow 建立、VPS infra、Telegram Bot 管理 |
+| **股票達人**          | Hermes (Flash) | 每日 18:00 股票分析 → Telegram + Vault            |
+| **Secretary 自動化** | n8n (Flash)    | Telegram 路由、信用咭查詢、HR 排程、旅行推薦              |
+| **知識庫**           | Obsidian Vault | 咭片數據（~20 張）、求職記錄、旅行偏好、股票報告                |
 
 ---
 
@@ -231,7 +275,13 @@ payment_methods:
 spend_min: 0
 spend_cap_monthly: 500
 spend_cap_scope: "網購"
+spend_min_note: "無最低消費要求"
 foreign_transaction_fee: 1.95
+
+special_rules:
+  - "網購只限電子商戶 MCC (網上交易)"
+  - "每月 8 號 HKTVmall 10% (上限 $100)"
+  - "BOC Pay 每月 8/18/28 日積分抵扣 85 折（如適用）"
 
 tags: [online_shopping, cashback, no_annual_fee]
 best_for: ["本地網購", "外幣網購"]
