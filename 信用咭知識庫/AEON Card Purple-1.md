@@ -4,7 +4,8 @@
 指定商店︰  AEON Stores (Mono Mono, AEON Stores, Daiso Japan, Living Plaza)
 指定商店︰  運輸署網上繳交車輛牌費  6%
 消費餘額︰ 0
-消費上限︰  $1786
+消費下限︰  0
+消費上限︰  $5000
 回贈有限期：2026 年 8 月 31 日
 截數日︰ 2026 年 7 月 12 日
 
