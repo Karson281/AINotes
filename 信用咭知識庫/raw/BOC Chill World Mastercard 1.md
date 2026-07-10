@@ -1,5 +1,5 @@
 支付模式︰ GPay
-消費模式︰ 外地簽帳/外地網購
+消費模式︰ 外地簽帳/外幣網購
 現金回贈︰ 10%
 類別︰
 指定商店︰McDonald's、Pacific Coffee、Starbucks、UNIQLO、GU、IKEA、Dyson、Samsung、Sony、LOG-ON、NOC、%ARABICA、FINEPRINT、Logitech、Razer、全港戲院、Apple TV/ Music、Apple Store、App Store、Disney+、Google Play、JOOX、KK Box、MOOV、Netflix、Nintendo、PlayStation、Spotify、YouTube
