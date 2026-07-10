@@ -1,8 +1,8 @@
-消費模式︰ 手機二維碼
+支付模式︰ 手機二維碼
+消費模式︰本地簽帳
 現金回贈︰ 6%
 類別︰   餐飲  ／ 交通 (Uber, MTR, 巴士, 行車隧道費,高鐵等) 
 指定商店︰  AEON Stores (Mono Mono, AEON Stores, Daiso Japan, Living Plaza)
-指定商店︰  運輸署網上繳交車輛牌費  6%
 消費餘額︰ 0
 消費下限︰  0
 消費上限︰  $5000
