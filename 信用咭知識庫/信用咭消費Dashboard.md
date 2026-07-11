@@ -11,6 +11,8 @@ tags: [dashboard]
 ## 📥 輸入
 
 ```dataviewjs
+// IIFE wrapper — prevents 'dv already declared' error
+(() => {
 const dv = app.plugins.plugins.dataview.api;
 
 // === 用戶輸入（修改呢度） ===
@@ -198,6 +200,7 @@ if (results.length === 0) {
     ])
   );
 }
+})(); // END IIFE — prevents 'dv already declared'
 ```
 
 ---
