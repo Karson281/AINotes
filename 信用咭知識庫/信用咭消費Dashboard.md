@@ -75,14 +75,48 @@ for (const card of cards) {
     }
   }
 
+  // ── 今日日期，匹配 merchant_specific 嘅日期條件 ──
+  const today   = new Date();
+  const dayNum  = today.getDate();           // 1-31
+  const weekDay = today.getDay();            // 0=Sun .. 6=Sat
+  const weekDayMap = {0:"日",1:"一",2:"二",3:"三",4:"四",5:"五",6:"六"};
+  const todayStr = weekDayMap[weekDay];      // "一".."日"
+
+  // return true 如果 condition string 匹配今日
+  function dateMatches(cond) {
+    if (!cond) return false;
+    const s = cond.replace(/\s/g, "");
+    // "每月3/13/23日" → check day number
+    const dayMatch = s.match(/每月([\d\/]+)日/);
+    if (dayMatch) {
+      const days = dayMatch[1].split("/").map(Number);
+      return days.includes(dayNum);
+    }
+    // "星期五" → check weekday
+    const wkMatch = s.match(/星期([一二三四五六日])/);
+    if (wkMatch) return wkMatch[1] === todayStr;
+    return false;
+  }
+
   let merchantRate = 0;
   let merchantNote = "";
-  if (merchant && card.merchant_specific && card.merchant_specific.length > 0) {
+  let dateAutoMatch = false;
+
+  if (card.merchant_specific && card.merchant_specific.length > 0) {
     for (const m of card.merchant_specific) {
-      if (m.store && m.store.includes(merchant)) {
+      // 人手輸入商戶 → 匹配
+      if (merchant && m.store && m.store.includes(merchant)) {
         if (m.rate > merchantRate) {
           merchantRate = m.rate;
           merchantNote = m.condition || "";
+        }
+      }
+      // 冇人手輸入但日期匹配 → 自動浮上
+      if (!merchant && dateMatches(m.condition)) {
+        if (m.rate > merchantRate) {
+          merchantRate = m.rate;
+          merchantNote = `📅 ${m.store}（${m.condition}）`;
+          dateAutoMatch = true;
         }
       }
     }
@@ -128,11 +162,20 @@ for (const card of cards) {
     payMethods: payMethods,
     note:       merchantNote,
     balance:    card.new_balance || 0,
-    cap:        card.spend_cap_monthly || 0
+    cap:        card.spend_cap_monthly || 0,
+    conditional: (merchantRate > 0 && bestRate === 0) || dateAutoMatch
+      // 回贈只來自條件觸發（merchant_specific），非通用 rate
   });
 }
 
-results.sort((a, b) => b.netRebate - a.netRebate);
+// 排序：無條件常用優先 → 同等 net 下條件卡排後面
+results.sort((a, b) => {
+  if (a.conditional !== b.conditional) return a.conditional ? 1 : -1;
+  return b.netRebate - a.netRebate;
+});
+
+const unconditional = results.filter(r => !r.conditional);
+const conditional   = results.filter(r =>  r.conditional);
 
 // 輸出標題
 const header = document.createElement("div");
@@ -146,32 +189,56 @@ if (results.length === 0) {
   noResult.textContent = "❌ 冇匹配嘅信用卡";
   _container.appendChild(noResult);
 } else {
-  dv.table(
-    ["排名", "信用咭", "支付模式", "回贈率", "淨回贈", "月上限餘額"],
-    results.slice(0, 2).map((r, i) => [
-      i === 0 ? "🥇" : "🥈",
-      `**${r.name}** (${r.bank})`,
-      r.payMethods.join(" / "),
-      `${r.rate}%`,
-      `HK$${r.netRebate.toFixed(1)}`,
-      r.cap > 0 ? `$${(r.cap - r.balance).toFixed(0)} / $${r.cap}` : "無上限"
-    ])
-  );
+  // ── 🏆 Top 2：無條件常用卡 ──
+  if (unconditional.length > 0) {
+    dv.table(
+      ["🏆 常用推薦", "信用咭", "支付模式", "回贈率", "淨回贈", "月上限餘額"],
+      unconditional.slice(0, 2).map((r, i) => [
+        i === 0 ? "🥇" : "🥈",
+        `**${r.name}** (${r.bank})`,
+        r.payMethods.join(" / "),
+        `${r.rate}%`,
+        `HK$${r.netRebate.toFixed(1)}`,
+        r.cap > 0 ? `$${(r.cap - r.balance).toFixed(0)} / $${r.cap}` : "無上限"
+      ])
+    );
+  }
 
-  const divider = document.createElement("div");
-  divider.innerHTML = `<hr style="margin:12px 0;"><p style="font-weight:bold;">📋 全部結果</p>`;
-  _container.appendChild(divider);
+  // ── ⚠️ 條件觸發高回贈 ──
+  if (conditional.length > 0) {
+    const cLabel = document.createElement("p");
+    cLabel.innerHTML = `<br><span style="color:#c60;">⚠️ 條件觸發高回贈（有日期/商戶限制，僅供參考）</span>`;
+    _container.appendChild(cLabel);
 
-  dv.table(
-    ["信用咭", "回贈率", "淨回贈", "支付方式", "備註"],
-    results.map(r => [
-      r.name,
-      `${r.rate}%`,
-      `HK$${r.netRebate.toFixed(1)}`,
-      r.payMethods.join(" / "),
-      r.note
-    ])
-  );
+    dv.table(
+      ["信用咭", "回贈率", "淨回贈", "支付方式", "觸發條件"],
+      conditional.map(r => [
+        r.name,
+        `${r.rate}%`,
+        `HK$${r.netRebate.toFixed(1)}`,
+        r.payMethods.join(" / "),
+        r.note
+      ])
+    );
+  }
+
+  // ── 📋 全部無條件卡 ──
+  if (unconditional.length > 2) {
+    const divider = document.createElement("div");
+    divider.innerHTML = `<hr style="margin:12px 0;"><p style="font-weight:bold;">📋 全部無條件卡</p>`;
+    _container.appendChild(divider);
+
+    dv.table(
+      ["信用咭", "回贈率", "淨回贈", "支付方式", "備註"],
+      unconditional.map(r => [
+        r.name,
+        `${r.rate}%`,
+        `HK$${r.netRebate.toFixed(1)}`,
+        r.payMethods.join(" / "),
+        r.note
+      ])
+    );
+  }
 }
 })();
 ```
@@ -187,3 +254,23 @@ if (results.length === 0) {
 | `location` | 消費地區 | 香港 / 中國 / 澳門 / 台灣 / 日本 / 其他外地 |
 | `merchant` | 商戶名（可選）| 例如 "惠康"、"萬寧"、"百佳" |
 | `payMethod` | 支付方式（可選）| GPay / BOC Pay / 雲閃付 / 手機二維碼 / 實咭 |
+
+---
+
+## 🏪 可用指定商戶優惠
+
+> 以下商戶有獨家回贈。**今日日期匹配嘅會自動浮上**，唔使人手打 `merchant`。
+
+```dataview
+TABLE 
+  card_name AS "信用咭",
+  rows.store AS "商戶",
+  rows.rate AS "回贈%",
+  rows.condition AS "條件"
+FROM "信用咭知識庫"
+WHERE active = "Y" AND merchant_specific
+FLATTEN merchant_specific AS rows
+SORT rows.rate DESC
+```
+
+> 💡 喺上面「輸入」區改 `merchant` 變數（例如 `"萬寧"`）可手動觸發指定商戶優惠。
