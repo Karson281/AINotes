@@ -9,7 +9,6 @@ tags: [dashboard]
 ---
 
 ## 📥 輸入
-
 ```dataviewjs
 // IIFE wrapper — prevents 'dv already declared' error
 (() => {
@@ -46,44 +45,32 @@ const cards = dv.pages('"信用咭知識庫"')
 const results = [];
 
 for (const card of cards) {
-  // 跳過沒有 cashback 的
   if (!card.cashback) continue;
   
-  // 計算基礎回贈率：取該消費模式最高者
   let bestRate = 0;
   for (const field of cashbackFields) {
     const r = card.cashback[field] || 0;
     if (r > bestRate) bestRate = r;
   }
   
-  // 檢查 scenarios（如有，覆蓋基礎 rate）
   if (card.scenarios && card.scenarios.length > 0) {
     for (const s of card.scenarios) {
       const sFields = modeMap[s.spend_mode] || [s.spend_mode];
       const matched = cashbackFields.some(f => sFields.includes(f));
       if (!matched) continue;
-      
-      // 支付方式過濾
       if (payMethod && s.pay_method && !s.pay_method.includes(payMethod.toLowerCase())) continue;
-      
-      // 消費下限檢查
       if (s.spend_min && amount < s.spend_min) continue;
-      
       if (s.rate > bestRate) bestRate = s.rate;
     }
   }
   
   if (bestRate === 0) continue;
-  
-  // 消費下限檢查
   if (card.spend_min && amount < card.spend_min) continue;
   
-  // 支付方式過濾
   if (payMethod) {
     const pmLower = payMethod.toLowerCase().replace(/\s/g, "");
     const methods = card.payment_methods;
     if (methods) {
-      // map common names
       const pmKey = pmLower === "gpay" ? "gpay" :
                     pmLower === "bocpay" ? "bocpay" :
                     pmLower === "雲閃付" ? "unionpay" :
@@ -93,7 +80,6 @@ for (const card of cards) {
     }
   }
   
-  // 商戶特定優惠覆蓋
   let merchantRate = 0;
   let merchantNote = "";
   if (merchant && card.merchant_specific && card.merchant_specific.length > 0) {
@@ -108,31 +94,23 @@ for (const card of cards) {
   }
   
   const finalRate = merchantRate > bestRate ? merchantRate : bestRate;
-  
-  // 計算淨回贈
   const grossRebate = amount * (finalRate / 100);
   
-  // FCC
   let fee = 0;
   if (isOverseas || isCN) {
     const fcc = card.foreign_transaction_fee;
-    if (fcc && fcc > 0) {
-      fee = amount * (fcc / 100);
-    }
+    if (fcc && fcc > 0) fee = amount * (fcc / 100);
   }
   
   const netRebate = grossRebate - fee;
-  
-  // 月上限檢查
   let cappedRebate = netRebate;
   if (card.spend_cap_monthly && card.spend_cap_monthly > 0) {
     const currentBalance = card.new_balance || 0;
     const remaining = card.spend_cap_monthly - currentBalance;
     if (cappedRebate > remaining && remaining > 0) cappedRebate = remaining;
-    if (remaining <= 0) continue; // 已爆 cap
+    if (remaining <= 0) continue;
   }
   
-  // 支付方式列表
   let payMethods = [];
   if (card.payment_methods) {
     const m = card.payment_methods;
@@ -152,29 +130,31 @@ for (const card of cards) {
     rate: finalRate,
     netRebate: cappedRebate,
     payMethods: payMethods,
-    spendMode: card.spend_mode,
     note: merchantNote,
     balance: card.new_balance || 0,
     cap: card.spend_cap_monthly || 0
   });
 }
 
-// 排名
 results.sort((a, b) => b.netRebate - a.netRebate);
 
-// === 輸出 ===
-dv.paragraph(`## 📊 消費 $${amount} · ${spendMode} · ${location}${merchant ? " · " + merchant : ""}${payMethod ? " · " + payMethod : ""}`);
-dv.paragraph("");
+// ✅ 修正：用 dv.container.innerHTML 取代所有 dv.el()
+const header = document.createElement("div");
+header.innerHTML = `
+  <p style="font-size:1.1em; font-weight:bold; margin-bottom:4px;">
+    📊 消費 $${amount} · ${spendMode} · ${location}${merchant ? " · " + merchant : ""}${payMethod ? " · " + payMethod : ""}
+  </p>`;
+dv.container.appendChild(header);
 
 if (results.length === 0) {
-  dv.paragraph("❌ 冇匹配嘅信用卡");
+  const noResult = document.createElement("p");
+  noResult.textContent = "❌ 冇匹配嘅信用卡";
+  dv.container.appendChild(noResult);
 } else {
-  // Top 2
-  const top2 = results.slice(0, 2);
-  
+  // Top 2 表格
   dv.table(
     ["排名", "信用咭", "支付模式", "回贈率", "淨回贈", "月上限餘額"],
-    top2.map((r, i) => [
+    results.slice(0, 2).map((r, i) => [
       i === 0 ? "🥇" : "🥈",
       `**${r.name}** (${r.bank})`,
       r.payMethods.join(" / "),
@@ -183,16 +163,17 @@ if (results.length === 0) {
       r.cap > 0 ? `$${(r.cap - r.balance).toFixed(0)} / $${r.cap}` : "無上限"
     ])
   );
-  
-  // 所有結果
-  dv.paragraph("");
-  dv.paragraph("---");
-  dv.paragraph("### 📋 全部結果");
-  
+
+  // 分隔線與全部結果標題
+  const divider = document.createElement("div");
+  divider.innerHTML = `<hr style="margin:12px 0;"><p style="font-weight:bold;">📋 全部結果</p>`;
+  dv.container.appendChild(divider);
+
+  // 全部結果表格
   dv.table(
     ["信用咭", "回贈率", "淨回贈", "支付方式", "備註"],
     results.map(r => [
-      `${r.name}`,
+      r.name,
       `${r.rate}%`,
       `HK$${r.netRebate.toFixed(1)}`,
       r.payMethods.join(" / "),
@@ -200,19 +181,7 @@ if (results.length === 0) {
     ])
   );
 }
-})(); // END IIFE — prevents 'dv already declared'
-```
+})(); // END IIFE
+```dataviewjs
 
----
 
-## 📝 使用說明
-
-修改上面 `const` 區塊嘅變數即可查詢：
-
-| 變數 | 說明 | 可選值 |
-|------|------|--------|
-| `amount` | 消費金額 (HKD) | 數字 |
-| `spendMode` | 消費模式 | 本地簽帳 / 外地簽帳 / 內地簽帳 / 台灣簽帳 / 本地網購 / 外幣網購 |
-| `location` | 消費地區 | 香港 / 中國 / 澳門 / 台灣 / 日本 / 其他外地 |
-| `merchant` | 商戶名（可選）| 文字，例如 "惠康"、"萬寧"、"百佳" |
-| `payMethod` | 支付方式（可選）| GPay / BOC Pay / 雲閃付 / 手機二維碼 / 實咭 |
