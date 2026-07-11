@@ -1,6 +1,6 @@
 ---
 card_name: "Enjoy Platinum Visa"
-bank: "Standard Chartered"
+bank: "Hang Seng"
 spend_mode: "GPay"
 expiry_date: 2026-12-31
 active: Y
@@ -10,12 +10,15 @@ foreign_transaction_fee: 0
 
 cashback:
   local_dining: 0
-  local_retail: 8.0
+  local_retail: 0
   local_online: 0
   overseas_online: 0
   overseas_pos: 0
   cn_pos: 0
   travel: 0
+
+  # 回贈只限特定日期+商戶，見 merchant_specific
+  # local_retail=0 避免誤導
 
 merchant_specific:
   - store: "惠康"

@@ -9,13 +9,16 @@ new_balance: 0
 foreign_transaction_fee: 0
 
 cashback:
-  local_dining: 8.0
-  local_retail: 8.0
+  local_dining: 0
+  local_retail: 0
   local_online: 4.0
   overseas_online: 4.0
   overseas_pos: 0
   cn_pos: 0
   travel: 0
+
+  # local_dining/retail 8% 只限指定商戶+實咭，見 merchant_specific
+  # 設為 0 避免誤導
 
 merchant_specific:
   - store: "香港壽司郎"
