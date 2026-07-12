@@ -2,7 +2,7 @@
   {
     "card_name": "AEON Card Purple",
     "bank": "AEON",
-    "spend_mode": "手機二維碼 / 實體咭",
+    "spend_mode": "手機二維碼",
     "expiry_date": "2026-08-31",
     "active": "Y",
     "closing_date": "2026-07-12",
@@ -55,7 +55,7 @@
         "rate": 6.0,
         "cap": 1786,
         "spend_min": 0,
-        "note": "實體咭：中國、台灣、澳門及世界各地"
+        "note": "中國、台灣、澳門及世界各地"
       }
     ],
     "spend_min": 0,
@@ -82,7 +82,7 @@
   {
     "card_name": "AEON Wakuwaku Mastercard",
     "bank": "AEON",
-    "spend_mode": "實體咭",
+    "spend_mode": "網購輸入實體咭咭號",
     "expiry_date": "2026-08-31",
     "active": "Y",
     "closing_date": "2026-07-12",
