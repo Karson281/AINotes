@@ -6,13 +6,13 @@ expiry_date: 2026-08-31
 active: Y
 closing_date: 2026-07-12
 new_balance: 332.43
-foreign_transaction_fee: 0
+foreign_transaction_fee: 1.95
 
 cashback:
   local_dining: 0
   local_retail: 0
   local_online: 6.0
-  overseas_online: 4.95
+  overseas_online: 4.05
   overseas_pos: 0
   cn_pos: 0
   travel: 0
@@ -28,9 +28,9 @@ merchant_specific:
     expiry: 2026-08-31
 
 payment_methods:
-  physical_card: Y
+  physical_card: N
   card_number: Y
-  gpay: Y
+  gpay: N
   gpay_bonus: 0
   bocpay: N
   unionpay: N
@@ -54,11 +54,11 @@ best_for: ["本地網購", "淘寶", "車牌費"]
 | 場景 | 回贈率 | 月上限 |
 |------|--------|--------|
 | 本地網購 | **6%** | $3,571 |
-| 外幣網購 | 4.95% | $3,571 |
+| 外幣網購 | 4.05% | $3,571 |
 | 淘寶（支付寶綁咭）| 4.5% | $3,571 |
 | 運輸署車牌費 | 6% | $3,571 |
 
-- **支付**: 實體咭
+- **支付**: 輸入咭號
 - **FCC**: 外幣 1.95% / 本地不適用
 - **消費餘額**: $332.43
 - **截數日**: 每月 12 日
