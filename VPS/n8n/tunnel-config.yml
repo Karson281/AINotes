@@ -1,9 +1,0 @@
-tunnel: 499f94fd-9170-4763-ba47-93eed9151bdf
-credentials-file: /home/nonroot/.cloudflared/499f94fd-9170-4763-ba47-93eed9151bdf.json
-
-ingress:
-  - hostname: n8n.tatyan.com
-    service: https://localhost:5679
-    originRequest:
-      noTLSVerify: true
-  - service: http_status:404
