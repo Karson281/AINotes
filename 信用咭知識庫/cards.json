@@ -12,8 +12,8 @@
       "local_dining": 6.0,
       "local_retail": 0,
       "local_online": 0,
-      "overseas_online": 6.0,
-      "overseas_pos": 6.0,
+      "overseas_online": 4.05,
+      "overseas_pos": 4.05,
       "cn_pos": 6.0,
       "travel": 6.0
     },
@@ -49,6 +49,16 @@
       },
       {
         "spend_mode": "overseas_pos",
+        "pay_method": [
+          "physical_card"
+        ],
+        "rate": 6.0,
+        "cap": 1786,
+        "spend_min": 0,
+        "note": "實體咭：中國、台灣、澳門及世界各地"
+      }
+      {
+        "spend_mode": "overseas_online",
         "pay_method": [
           "physical_card"
         ],
@@ -160,10 +170,10 @@
     "merchant_specific": [],
     "payment_methods": {
       "physical_card": "Y",
-      "card_number": "N",
+      "card_number": "Y",
       "gpay": "Y",
       "gpay_bonus": 0,
-      "bocpay": "N",
+      "bocpay": "Y",
       "unionpay": "N",
       "alipayhk": "N",
       "wechatpay": "N"
@@ -176,17 +186,39 @@
           "gpay"
         ],
         "rate": 4.0,
-        "cap": 100000,
+        "cap": 10000,
         "spend_min": 5000,
-        "note": "本地餐飲/外地簽帳"
+        "note": "本地餐飲/本地寵物/外地簽帳"
+      },
+      {
+        "spend_mode": "overseas_online",
+        "pay_method": [
+          "physical_card"
+        ],
+        "rate": 2.05,
+        "cap": 25000,
+        "spend_min": 5000,
+        "note": "travel"
+      },
+      {
+        "spend_mode": "overseas_pos",
+        "pay_method": [
+          "physical_card",
+          "gpay"
+        ],
+        "rate": 2.05,
+        "cap": 25000,
+        "spend_min": 5000,
+        "note": "travel"
       },
       {
         "spend_mode": "local_retail",
         "pay_method": [
           "physical_card",
+          "bocpay",
           "gpay"
         ],
-        "rate": 4.0,
+        "rate": 5.0,
         "cap": 6000,
         "spend_min": 5000,
         "note": "寵物/休閒/機票酒店/電子/餐飲/醫療/珠寶（星期日及公眾假期）"
@@ -194,20 +226,30 @@
       {
         "spend_mode": "local_online",
         "pay_method": [
-          "gpay"
+          "physical_card"
         ],
         "rate": 4.0,
         "cap": 4000,
-        "spend_min": 0,
-        "note": "本地網購（星期日及公眾假期）"
+        "spend_min": 4000,
+        "note": "網購:寵物/休閒/機票酒店/電子/餐飲/醫療/珠寶（星期日及公眾假期）"
+      }
+      {
+        "spend_mode": "overseas_online",
+        "pay_method": [
+          "physical_card"
+        ],
+        "rate": 2.05,
+        "cap": 4000,
+        "spend_min": 4000,
+        "note": "網購:寵物/休閒/機票酒店/電子/餐飲/醫療/珠寶（星期日及公眾假期）"
       }
     ],
     "spend_min": 5000,
     "spend_cap_monthly": 100000,
     "special_rules": [
-      "場景 2+3 只限星期日及公眾假期",
-      "場景 1 消費下限 $5,000",
-      "FCC: 場景 1 有 1.95%，場景 2/3 不適用"
+      "場景 4+5+6 只限星期日及公眾假期",
+      "場景 1+2+3 消費下限 $5,000",
+      "FCC: 場景 2+3+6 有 1.95%，場景 1+4 不適用"
     ],
     "tags": [
       "dining",
@@ -217,6 +259,7 @@
     ],
     "best_for": [
       "餐飲",
+      "寵物",
       "機票酒店",
       "電子產品"
     ]
