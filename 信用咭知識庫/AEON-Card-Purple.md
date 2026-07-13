@@ -1,7 +1,7 @@
 ---
 card_name: "AEON Card Purple"
 bank: "AEON"
-spend_mode: "手機二維碼 / 實體咭"
+spend_mode: "手機二維碼"
 expiry_date: 2026-08-31
 active: Y
 closing_date: 2026-07-12
@@ -30,7 +30,7 @@ payment_methods:
   gpay_bonus: 0
   bocpay: N
   unionpay: N
-  alipayhk: Y
+  alipayhk: N
   wechatpay: N
   qrcode: Y
 
