@@ -1,0 +1,20 @@
+date,ticker_yahoo,ticker_stockapi,name,price_stockapi,change_pct_stockapi,source
+20260714,0005.HK,HK00005,匯豐控股,152.6,-0.78,tencent
+20260714,0006.HK,HK00006,電能實業,57.85,0,tencent
+20260714,0267.HK,HK00267,中信股份,11.24,1.08,tencent
+20260714,0270.HK,HK00270,粵海投資,7.76,1.7,tencent
+20260714,0363.HK,HK00363,上海實業,13,0.85,tencent
+20260714,0669.HK,HK00669,創科實業,125.5,1.29,tencent
+20260714,0823.HK,HK00823,領展房產基金,37.98,1.23,tencent
+20260714,0883.HK,HK00883,中國海洋石油,22.8,2.43,tencent
+20260714,0941.HK,HK00941,中國移動,79.1,-0.19,tencent
+20260714,2388.HK,HK02388,中銀香港,46.18,-0.56,tencent
+20260714,2800.HK,HK02800,盈富基金,24.84,0.65,tencent
+20260714,3466.HK,HK03466,香港高息股ETF,19.27,1.0,tencent
+20260714,3988.HK,HK03988,中國銀行,5.07,-0.59,tencent
+20260714,6823.HK,HK06823,香港電訊,12.05,-0.25,tencent
+20260714,JPM,USJPM,摩根大通,342.8,2.47,tencent
+20260714,ABBV,USABBV,艾伯維,245.07,-1.18,tencent
+20260714,CVX,USCVX,雪佛龍,182.15,-0.03,tencent
+20260714,O,USO,Realty Income,64.09,-0.12,tencent
+20260714,VZ,USVZ,Verizon,42.42,-0.61,tencent
