@@ -517,15 +517,40 @@ dv.span('<a href="02-Wiki/Stocks/{ts}-股票監察名單.md" style="background:#
             color = "🟢" if chg and chg >= 0 else "🔴"
             dashboard += f"| {color} {name} | {price:,.2f} | {chg:+.2f}% |\n"
     
-    # Rating distribution
-    dashboard += "\n## 📊 評級分佈\n"
-    total = sum(ratings_count.values()) or 1
-    for r in rating_order:
-        cnt = ratings_count.get(r, 0)
-        pct = round(cnt / total * 100)
-        bar = "█" * pct + "░" * (10 - pct) if pct <= 10 else "█" * 10
-        emoji = "🟢" if "買入" in r else "🟡" if "觀察" in r or "觀望" in r else "🔴"
-        dashboard += f"- {emoji} **{r}**: {cnt} 隻 `{bar}`\n"
+    # Rating distribution — DataviewJS dynamic block (auto-shows ticker names)
+    dashboard += """
+## 📊 評級分佈
+```dataviewjs
+const pages = dv.pages('"02-Wiki/Stocks"')
+    .where(p => p.type == "stock-analysis" && p.date == dv.current().date)
+    .sort(p => p.rating);
+
+const ratings = {
+    "建倉買入": { emoji: "🟢", stocks: [] },
+    "加倉買入": { emoji: "🟢", stocks: [] },
+    "密切觀察": { emoji: "🟡", stocks: [] },
+    "觀望":     { emoji: "🟡", stocks: [] },
+    "減倉賣出": { emoji: "🔴", stocks: [] },
+    "清倉賣出": { emoji: "🔴", stocks: [] }
+};
+
+for (let p of pages) {
+    if (ratings[p.rating]) {
+        ratings[p.rating].stocks.push(p.ticker);
+    }
+}
+
+const maxCount = Math.max(1, ...Object.values(ratings).map(r => r.stocks.length));
+const barLen = 10;
+
+for (let [r, data] of Object.entries(ratings)) {
+    const count = data.stocks.length;
+    const bar = "█".repeat(Math.round(count / maxCount * barLen)).padEnd(barLen, "░");
+    const tickers = count > 0 ? " — " + data.stocks.join(", ") : "";
+    dv.span(`${data.emoji} **${r}**: ${count} 隻 \`${bar}\`${tickers}\n`);
+}
+```
+"""
     
     # Div alerts
     if div_alerts:
@@ -549,8 +574,8 @@ TABLE
     choice(rating="建倉買入" or rating="加倉買入", "✅ 買入機會", 
            choice(rating="密切觀察", "👀 等信號",
            choice(rating="觀望", "⏸️ 暫時不動", "⚠️ 減持"))) AS "建議"
-FROM "02-Wiki/Stocks/{ts}"
-WHERE type = "stock-analysis"
+FROM "02-Wiki/Stocks"
+WHERE type = "stock-analysis" AND date = this.date
 SORT choice(rating="建倉買入", 0, rating="加倉買入", 1, rating="密切觀察", 2, rating="觀望", 3, rating="減倉賣出", 4, 5) ASC
 ```
 """
