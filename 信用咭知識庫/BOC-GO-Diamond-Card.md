@@ -14,7 +14,7 @@ cashback:
   local_online: 5.0
   overseas_online: 0
   overseas_pos: 0
-  cn_pos: 8.0
+  cn_pos: 10.0
   travel: 0
 
 merchant_specific:
@@ -22,7 +22,7 @@ merchant_specific:
     rate: 8.0
     condition: "實體咭"
     expiry: 2026-12-31
-  - store: "內地美團/大眾點評/滴滴出行"
+  - store: "內地美團/大眾點評/滴滴出行/西九高鐵"
     rate: 5.0
     condition: "實體卡/雲閃付"
     expiry: 2026-09-30
@@ -58,8 +58,8 @@ scenarios:
     pay_method: [physical_card, unionpay]
     rate: 5.0
     cap: 2000
-    spend_min: 1500
-    note: "實體卡/雲閃付：內地美團等 + 本地 Keeta/惠康/Market Place"
+    spend_min: 0
+    note: "實體卡/雲閃付：內地美團/大眾點評/滴滴出行/西九高鐵 + 本地 Keeta/惠康/Market Place"
   - spend_mode: local_pos
     pay_method: [unionpay, bocpay]
     rate: 4.0
@@ -68,10 +68,10 @@ scenarios:
     note: "雲閃付/BOC Pay：本地銀聯商店"
   - spend_mode: cn_pos
     pay_method: [physical_card]
-    rate: 8.0
-    cap: 5000
+    rate: 10.0
+    cap: 3000
     spend_min: 0
-    note: "實體咭：內地及澳門銀聯商店（退稅另回 10%）"
+    note: "實體咭：內地及澳門銀聯商店（退稅回贈）"
 
 spend_min: 0
 spend_cap_monthly: 5000
@@ -90,8 +90,8 @@ best_for: ["內地簽帳", "銀聯商店", "繳費"]
 | 場景 | 回贈率 | 支付方式 | 月上限 | 消費下限 |
 |------|--------|----------|--------|----------|
 | 內地實體店 | **8%** | 雲閃付/BOC Pay | $1,250 | $0 |
-| 內地及澳門銀聯 | **8%** | 實體咭 | $5,000 | $0 |
-| 內地美團/Keeta/惠康 | 5% | 實體卡/雲閃付 | $2,000 | $1,500 |
+| 內地及澳門銀聯（退稅） | **10%** | 實體咭 | $3,000 | $0 |
+| 內地美團/Keeta/惠康/西九高鐵 | 5% | 實體卡/雲閃付 | $2,000 | $0 |
 | 本地銀聯商店 | 4% | 雲閃付/BOC Pay | $2,500 | $0 |
 | 繳費 | 1.4% | 網上理財/BOC Pay | $20,000 | $10,000 |
 
