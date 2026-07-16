@@ -193,7 +193,7 @@ def fetch_index_data(ticker):
     except Exception:
         return None, None
 
-def compute_rating(indicators, region):
+def compute_rating(indicators, region, stock_type="neutral"):
     """Rule-based rating: MA resonance + RSI threshold + MACD cross (no LLM needed)"""
     ma20 = indicators.get('ma20')
     ma50 = indicators.get('ma50')
@@ -235,8 +235,8 @@ def compute_rating(indicators, region):
         elif below and cross_dn:    macd_sig = "bearish"      # 零軸下死叉
 
     # ── Rating matrix ──
-    # 防守/收益型: less aggressive on sell signals
-    is_defensive = region == "HK"  # conservative bias for HK stocks
+    # Stock-type-aware signal weighting
+    is_defensive = stock_type in ("defensive", "income")
     
     # Strong buy
     if ma_signal == "strong_bull" and rsi_signal in ("neutral","near_oversold") and macd_sig == "bullish":
@@ -263,6 +263,59 @@ def compute_rating(indicators, region):
         return "觀望"
     
     return "密切觀察"  # Default: hold and watch
+
+def classify_stock(ticker, region):
+    """Classify stock type from yfinance info: defensive/income/growth/cyclical/value/neutral"""
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        sector = (info.get("sector") or "").lower()
+        industry = (info.get("industry") or "").lower()
+        beta = info.get("beta")
+        pe = info.get("trailingPE")
+        div_yield = info.get("dividendYield")  # yfinance returns %, NOT decimal
+        
+        # ── Income: very high yield (>8%), excluding banks ──
+        if div_yield and div_yield > 8:
+            if not (sector in ("financial services", "financial") 
+                    or "bank" in industry):
+                return "income"
+        
+        # ── Defensive: low beta + defensive sector + pays dividend ──
+        defensive_sectors = {
+            "utilities", "communication services", "consumer defensive",
+            "healthcare", "financial services", "financial", "insurance"
+        }
+        defensive_industries = {
+            "telecom services", "utilities", "banks—diversified", "banks—regional",
+            "insurance", "healthcare", "consumer staples"
+        }
+        if sector in defensive_sectors or any(d in industry for d in defensive_industries):
+            if beta is not None and beta < 0.9:
+                return "defensive"
+            if div_yield and div_yield > 2:
+                return "defensive"
+        
+        # ── Cyclical: high beta or cyclical sector ──
+        cyclical_sectors = {"basic materials", "energy", "consumer cyclical", "industrials", "real estate"}
+        if sector in cyclical_sectors or (beta is not None and beta > 1.2):
+            return "cyclical"
+        
+        # ── Growth: high PE + tech/healthcare ──
+        growth_sectors = {"technology", "healthcare", "biotechnology"}
+        if sector in growth_sectors and pe is not None and pe > 25:
+            return "growth"
+        
+        # ── Value: low PE + reasonable beta ──
+        if pe is not None and pe < 15 and beta is not None and 0.5 <= beta <= 1.5:
+            return "value"
+        
+        # ── Default by region ──
+        if region == "HK":
+            return "defensive"  # HK stocks bias
+        return "neutral"
+    except:
+        return "defensive" if region == "HK" else "neutral"
 
 def generate_commentary(ticker, name, price, change_pct, indicators, rating, region):
     """DeepSeek generates analysis text + action (rating is pre-computed by rules)"""
@@ -354,7 +407,9 @@ async def analyze_all():
             print("Insufficient data, skipping")
             continue
         
-        rating = compute_rating(indicators, region)
+        stock_type = classify_stock(ticker, region)
+        print(f"Stock type: {stock_type}")
+        rating = compute_rating(indicators, region, stock_type)
         print(f"Rating: {rating} (rule-based)")
         
         # DeepSeek only for commentary text (analysis + action)
@@ -404,11 +459,13 @@ macd: {indicators['macd']}
 macd_signal: {indicators['macd_signal']}
 vol_ratio: {indicators['vol_ratio']}
 rating: {rating}
+stock_type: {stock_type}
 ---
-# {ticker} {name} — {today:%Y-%m-%d}
-| 指標 | 數值 |
-|------|:----:|
-| 現價 | {price} |
+|# {ticker} {name} — {today:%Y-%m-%d}
+|| 指標 | 數值 |
+||------|:----:|
+|| 類型 | {stock_type} |
+|| 現價 | {price} |
 | 變幅 | {change_pct:+.2f}% |
 | MA20 | {indicators['ma20']} |
 | MA50 | {indicators['ma50']} |
