@@ -27,23 +27,37 @@ EXISTING = sorted(glob.glob(f"{TARGET_FOLDER}/{TODAY}-*.md"))
 EXISTING = [f for f in EXISTING if not any(
     skip in f for skip in ["股票分析摘要", "股票監察名單", "股票分析框架", "股息日曆"]
 )]
-if len(EXISTING) >= 15:
+if len(EXISTING) >= 25:
     print(f"✅ 今日已有 {len(EXISTING)} 份報告，跳過分析")
     sys.exit(0)
 else:
     print(f"⚠️ 今日只有 {len(EXISTING)} 份報告，開始補齊...")
 
-STOCKS = [
-    ("0005.HK","匯豐控股","HK"), ("0006.HK","電能實業","HK"),
-    ("0267.HK","中信股份","HK"), ("0270.HK","粵海投資","HK"),
-    ("0363.HK","上海實業","HK"), ("0669.HK","創科實業","HK"),
-    ("0823.HK","領展房產基金","HK"), ("0883.HK","中國海洋石油","HK"),
-    ("0941.HK","中國移動","HK"), ("2388.HK","中銀香港","HK"),
-    ("2800.HK","盈富基金","HK"), ("3466.HK","香港高息股ETF","HK"),
-    ("3988.HK","中國銀行","HK"), ("6823.HK","香港電訊","HK"),
-    ("JPM","摩根大通","US"), ("ABBV","艾伯維","US"),
-    ("CVX","雪佛龍","US"), ("O","Realty Income","US"), ("VZ","Verizon","US"),
-]
+# === Dynamic STOCKS loader from watchlist JSON ===
+# 以後只需更新 stock-watchlist.json，唔使改 script
+STOCKS = []
+try:
+    with open(WATCHLIST_FILE) as f:
+        watchlist = json.load(f)
+    for ticker in watchlist:
+        ticker = ticker.strip()
+        if ticker.endswith(".HK"):
+            STOCKS.append((ticker, ticker.replace(".HK",""), "HK"))
+        else:
+            STOCKS.append((ticker, ticker, "US"))
+except Exception as e:
+    print(f"⚠️ 讀取 {WATCHLIST_FILE} 失敗 ({e})，用 hardcoded fallback")
+    STOCKS = [
+        ("0005.HK","匯豐控股","HK"), ("0006.HK","電能實業","HK"),
+        ("0267.HK","中信股份","HK"), ("0270.HK","粵海投資","HK"),
+        ("0363.HK","上海實業","HK"), ("0669.HK","創科實業","HK"),
+        ("0823.HK","領展房產基金","HK"), ("0883.HK","中國海洋石油","HK"),
+        ("0941.HK","中國移動","HK"), ("2388.HK","中銀香港","HK"),
+        ("2800.HK","盈富基金","HK"), ("3466.HK","香港高息股ETF","HK"),
+        ("3988.HK","中國銀行","HK"), ("6823.HK","香港電訊","HK"),
+        ("JPM","摩根大通","US"), ("ABBV","艾伯維","US"),
+        ("CVX","雪佛龍","US"), ("O","Realty Income","US"), ("VZ","Verizon","US"),
+    ]
 
 INDICES = [
     ("^HSI","恆生指數","HSI"),
