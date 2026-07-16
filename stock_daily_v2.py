@@ -20,9 +20,15 @@ if not DEEPSEEK_KEY:
 WATCHLIST_FILE = "/root/vault/stock-watchlist.json"
 TARGET_FOLDER = "/root/vault/02-Wiki/Stocks"
 
-# === Pre-check: skip if today's reports already exist ===
-TODAY = datetime.now().strftime("%Y%m%d")
-EXISTING = sorted(glob.glob(f"{TARGET_FOLDER}/{TODAY}-*.md"))
+# === Pre-check: skip if trade date reports already exist ===
+_NOW = datetime.now()
+_TRADE_DATE = _NOW
+if _NOW.hour < 16:
+    _TRADE_DATE = _NOW - timedelta(days=1)
+    while _TRADE_DATE.weekday() >= 5:
+        _TRADE_DATE -= timedelta(days=1)
+TRADE_TS = _TRADE_DATE.strftime("%Y%m%d")
+EXISTING = sorted(glob.glob(f"{TARGET_FOLDER}/{TRADE_TS}-*.md"))
 # Filter out non-stock files (summary, watchlist, etc.)
 EXISTING = [f for f in EXISTING if not any(
     skip in f for skip in ["股票分析摘要", "股票監察名單", "股票分析框架", "股息日曆"]
@@ -33,6 +39,27 @@ if len(EXISTING) >= 25:
 else:
     print(f"⚠️ 今日只有 {len(EXISTING)} 份報告，開始補齊...")
 
+def get_stock_name(ticker, region):
+    """Fetch proper stock name from Tencent API (HK) or yfinance (US)"""
+    if region == "HK":
+        code = ticker.replace(".HK", "")
+        try:
+            r = httpx.get(f"https://qt.gtimg.cn/q=hk{code}", timeout=5)
+            data = r.content.decode('gbk', errors='replace')
+            if '"' in data:
+                fields = data.split('"')[1].split('~')
+                if len(fields) > 1 and fields[1]:
+                    return fields[1].strip()
+        except:
+            pass
+    # Fallback: yfinance
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        return info.get('longName') or info.get('shortName') or ticker
+    except:
+        return ticker
+
 # === Dynamic STOCKS loader from watchlist JSON ===
 # 以後只需更新 stock-watchlist.json，唔使改 script
 STOCKS = []
@@ -42,9 +69,11 @@ try:
     for ticker in watchlist:
         ticker = ticker.strip()
         if ticker.endswith(".HK"):
-            STOCKS.append((ticker, ticker.replace(".HK",""), "HK"))
+            name = get_stock_name(ticker, "HK")
+            STOCKS.append((ticker, name, "HK"))
         else:
-            STOCKS.append((ticker, ticker, "US"))
+            name = get_stock_name(ticker, "US")
+            STOCKS.append((ticker, name, "US"))
 except Exception as e:
     print(f"⚠️ 讀取 {WATCHLIST_FILE} 失敗 ({e})，用 hardcoded fallback")
     STOCKS = [
@@ -195,9 +224,15 @@ def clean_duplicates():
 
 async def analyze_all():
     print("=== Stock Daily v4 ===")
-    today = datetime.now()
+    now = datetime.now()
+    # Use previous trading day if before market close (16:00 HKT)
+    today = now
+    if now.hour < 16:
+        today = now - timedelta(days=1)
+        while today.weekday() >= 5:  # Skip Sat/Sun
+            today -= timedelta(days=1)
     ts = f"{today:%Y%m%d}"
-    print(f"Date: {today:%Y-%m-%d %H:%M}")
+    print(f"Analysis run: {now:%Y-%m-%d %H:%M}, Trade date: {today:%Y-%m-%d} ({today:%A})")
     
     # Cleanup
     clean_duplicates()
