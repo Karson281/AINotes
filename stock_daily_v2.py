@@ -137,20 +137,43 @@ def compute_indicators(df):
     
     return result
 
-def fetch_stock_data(ticker):
-    """Fetch 200 days of OHLCV from Yahoo Finance"""
+def fetch_stock_data(ticker, region="HK"):
+    """Fetch price (Tencent for HK, Yahoo for US) + 200d OHLCV for technical indicators"""
+    price = None
+    change_pct = None
+    
+    # ① HK stocks: Tencent real-time price for accuracy
+    if region == "HK":
+        try:
+            code = ticker.replace(".HK", "")
+            r = httpx.get(f"https://qt.gtimg.cn/q=hk{code}", timeout=5)
+            data = r.content.decode('gbk', errors='replace')
+            if '"' in data:
+                fields = data.split('"')[1].split('~')
+                if fields[3]:
+                    price = round(float(fields[3]), 2)
+                    prev_close = float(fields[4]) if fields[4] else None
+                    if prev_close:
+                        change_pct = round((price - prev_close) / prev_close * 100, 2)
+        except:
+            pass
+    
+    # ② Yahoo Finance for 200d history (MA/RSI/MACD)
     try:
         stock = yf.Ticker(ticker)
         df = stock.history(period="200d")
         if df.empty:
             return None, None, None
-        # Drop rows where Close is NaN (HK market post-close data sync)
         df = df.dropna(subset=["Close"])
         if df.empty:
             return None, None, None
-        price = round(df["Close"].iloc[-1], 2)
-        prev_close = round(df["Close"].iloc[-2], 2) if len(df) > 1 else price
-        change_pct = round((price - prev_close) / prev_close * 100, 2)
+        
+        # If Tencent gave us price, use it; otherwise fallback to Yahoo
+        if price is None:
+            price = round(df["Close"].iloc[-1], 2)
+            prev_close = round(df["Close"].iloc[-2], 2) if len(df) > 1 else price
+            change_pct = round((price - prev_close) / prev_close * 100, 2)
+        
         indicators = compute_indicators(df)
         return price, change_pct, indicators
     except Exception:
@@ -170,9 +193,81 @@ def fetch_index_data(ticker):
     except Exception:
         return None, None
 
-def analyze_with_deepseek(ticker, name, price, change_pct, indicators, region):
-    """DeepSeek interprets real indicators — no guessing"""
-    prompt = f"""分析 {ticker} ({name})，{region}股：
+def compute_rating(indicators, region):
+    """Rule-based rating: MA resonance + RSI threshold + MACD cross (no LLM needed)"""
+    ma20 = indicators.get('ma20')
+    ma50 = indicators.get('ma50')
+    ma200 = indicators.get('ma200')
+    rsi14 = indicators.get('rsi14')
+    macd = indicators.get('macd')
+    macd_signal = indicators.get('macd_signal')
+
+    # ── MA resonance ──
+    ma_signal = "neutral"
+    if ma20 and ma50 and ma200:
+        if ma20 > ma50 > ma200:
+            ma_signal = "strong_bull"       # 強共振
+        elif ma20 > ma50 > ma200 is False and ma20 > ma200:
+            ma_signal = "weak_bull"          # 弱偏多
+        elif ma50 > ma200 and ma20 < ma50 and ma20 < ma200:
+            ma_signal = "strong_bear"        # 強死亡交叉
+        elif ma50 > ma200 and ma20 < ma50 and ma20 > ma200:
+            ma_signal = "weak_bear"          # 弱死亡交叉
+
+    # ── RSI ──
+    rsi_signal = "neutral"
+    if rsi14 is not None:
+        if rsi14 < 30:       rsi_signal = "oversold"
+        elif rsi14 < 40:     rsi_signal = "near_oversold"
+        elif rsi14 > 70:     rsi_signal = "overbought"
+        elif rsi14 > 60:     rsi_signal = "near_overbought"
+
+    # ── MACD ──
+    macd_sig = "neutral"
+    if macd is not None and macd_signal is not None:
+        above = macd > 0 and macd_signal > 0
+        below = macd < 0 and macd_signal < 0
+        cross_up = macd > macd_signal
+        cross_dn = macd < macd_signal
+        if above and cross_up:      macd_sig = "bullish"      # 零軸上金叉
+        elif above and cross_dn:    macd_sig = "bullish_weak" # 零軸上但減弱
+        elif below and cross_up:    macd_sig = "recovering"   # 零軸下金叉（復甦）
+        elif below and cross_dn:    macd_sig = "bearish"      # 零軸下死叉
+
+    # ── Rating matrix ──
+    # 防守/收益型: less aggressive on sell signals
+    is_defensive = region == "HK"  # conservative bias for HK stocks
+    
+    # Strong buy
+    if ma_signal == "strong_bull" and rsi_signal in ("neutral","near_oversold") and macd_sig == "bullish":
+        return "建倉買入"
+    if rsi_signal == "oversold" and ma_signal in ("strong_bull","weak_bull") and macd_sig in ("bullish","recovering"):
+        return "建倉買入"
+    
+    # Sell signals
+    if ma_signal == "strong_bear" and rsi_signal in ("overbought","near_overbought"):
+        return "清倉賣出"
+    if ma_signal in ("strong_bear","weak_bear") and rsi_signal in ("overbought","near_overbought"):
+        return "減倉賣出" if not is_defensive else "密切觀察"
+    if ma_signal == "strong_bear" and rsi_signal in ("neutral",):
+        return "減倉賣出" if not is_defensive else "觀望"
+    if rsi_signal == "overbought" and ma_signal in ("weak_bear","strong_bear"):
+        return "減倉賣出"
+    
+    # Hold / watch
+    if ma_signal == "strong_bull" and rsi_signal in ("near_overbought",):
+        return "密切觀察"
+    if rsi_signal == "oversold":
+        return "密切觀察"
+    if ma_signal == "weak_bear" and rsi_signal in ("neutral","near_oversold"):
+        return "觀望"
+    
+    return "密切觀察"  # Default: hold and watch
+
+def generate_commentary(ticker, name, price, change_pct, indicators, rating, region):
+    """DeepSeek generates analysis text + action (rating is pre-computed by rules)"""
+    prompt = f"""分析 {ticker} ({name})，{region}股（系統評級：{rating}）：
+
 價格：{price}，變幅：{change_pct}%
 技術指標（真實數據）：
 - MA20: {indicators['ma20']}，MA50: {indicators['ma50']}，MA200: {indicators['ma200']}
@@ -185,17 +280,10 @@ def analyze_with_deepseek(ticker, name, price, change_pct, indicators, region):
 2. RSI 位置（超買/超賣/中性）
 3. MACD 方向（牛差/熊差）
 4. 成交量配合情況
-5. 明確的評級：只能從以下六個選擇一個：
-   - 建倉買入（強烈買入，技術面全面向好）
-   - 加倉買入（中線向好，適合加注）
-   - 密切觀察（技術面中性偏好，等信號）
-   - 觀望（技術面中性偏弱，不建議操作）
-   - 減倉賣出（技術面轉差，減持）
-   - 清倉賣出（全面轉壞，離場）
-6. 一句簡短 action item（交易員語氣）
+5. 一句簡短 action item（交易員語氣，配合系統評級）
 
 輸出 JSON 格式：
-{{"rating":"減倉賣出","analysis":"...","action":"..."}}
+{{"analysis":"技術面總結（繁體中文）","action":"交易員語氣行動建議（繁體中文）"}}
 不要 markdown code block，純 JSON。"""
     try:
         r = httpx.post("https://api.deepseek.com/v1/chat/completions",
@@ -207,9 +295,9 @@ def analyze_with_deepseek(ticker, name, price, change_pct, indicators, region):
         text = r.json()["choices"][0]["message"]["content"].strip()
         text = re.sub(r'^```(?:json)?\s*|\s*```$', '', text)
         result = json.loads(text)
-        return result.get("rating","觀望"), result.get("analysis",""), result.get("action","")
+        return result.get("analysis",""), result.get("action","")
     except Exception:
-        return "觀望", "DeepSeek API 返回異常，無法分析。", "—"
+        return "DeepSeek API 返回異常，無法分析。", "—"
 
 def clean_duplicates():
     """Remove dot-less duplicates (e.g. 0005HK.md when 0005.HK.md exists)"""
@@ -254,7 +342,7 @@ async def analyze_all():
     # Process stocks
     for ticker, name, region in STOCKS:
         print(f"\n--- {ticker} {name} ---")
-        price, change_pct, indicators = fetch_stock_data(ticker)
+        price, change_pct, indicators = fetch_stock_data(ticker, region)
         if price is None:
             print("No data, skipping")
             continue
@@ -266,10 +354,13 @@ async def analyze_all():
             print("Insufficient data, skipping")
             continue
         
-        rating, analysis, action = analyze_with_deepseek(ticker, name, price, change_pct, indicators, region)
-        rating_counts[rating] = rating_counts.get(rating, 0) + 1
-        print(f"Rating: {rating}")
+        rating = compute_rating(indicators, region)
+        print(f"Rating: {rating} (rule-based)")
+        
+        # DeepSeek only for commentary text (analysis + action)
+        analysis, action = generate_commentary(ticker, name, price, change_pct, indicators, rating, region)
         print(f"Action: {action}")
+        rating_counts[rating] = rating_counts.get(rating, 0) + 1
         
         # Check upcoming dividends (check if ex-div within 30 days)
         try:
