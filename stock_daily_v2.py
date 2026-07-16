@@ -576,7 +576,7 @@ TABLE
            choice(rating="觀望", "⏸️ 暫時不動", "⚠️ 減持"))) AS "建議"
 FROM "02-Wiki/Stocks"
 WHERE type = "stock-analysis" AND date = this.date
-SORT choice(rating="建倉買入", 0, rating="加倉買入", 1, rating="密切觀察", 2, rating="觀望", 3, rating="減倉賣出", 4, 5) ASC
+SORT choice(rating="建倉買入", 0, choice(rating="加倉買入", 1, choice(rating="密切觀察", 2, choice(rating="觀望", 3, choice(rating="減倉賣出", 4, 5))))) ASC
 ```
 """
     
