@@ -43,6 +43,12 @@ def get_stock_name(ticker, region):
     """Fetch proper stock name from Tencent API (HK) or yfinance (US)"""
     if region == "HK":
         code = ticker.replace(".HK", "")
+        # Tencent API requires 5-digit zero-padded codes (e.g., hk00941, not hk0941)
+        try:
+            int(code)
+            code = f"{int(code):05d}"
+        except ValueError:
+            pass
         try:
             r = httpx.get(f"https://qt.gtimg.cn/q=hk{code}", timeout=5)
             data = r.content.decode('gbk', errors='replace')
@@ -146,6 +152,11 @@ def fetch_stock_data(ticker, region="HK"):
     if region == "HK":
         try:
             code = ticker.replace(".HK", "")
+            try:
+                int(code)
+                code = f"{int(code):05d}"
+            except ValueError:
+                pass
             r = httpx.get(f"https://qt.gtimg.cn/q=hk{code}", timeout=5)
             data = r.content.decode('gbk', errors='replace')
             if '"' in data:

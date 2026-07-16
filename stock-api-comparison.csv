@@ -37,3 +37,22 @@ date,ticker_yahoo,ticker_stockapi,name,price_stockapi,change_pct_stockapi,source
 20260715,CVX,USCVX,雪佛龍,181.76,-0.24,tencent
 20260715,O,USO,Realty Income,63.77,-0.62,tencent
 20260715,VZ,USVZ,Verizon,42.47,-0.49,tencent
+20260716,0005.HK,HK00005,匯豐控股,156.9,1.03,tencent
+20260716,0006.HK,HK00006,電能實業,58.05,-0.09,tencent
+20260716,0267.HK,HK00267,中信股份,11.3,0.18,tencent
+20260716,0270.HK,HK00270,粵海投資,7.71,-0.39,tencent
+20260716,0363.HK,HK00363,上海實業,13.19,1.54,tencent
+20260716,0669.HK,HK00669,創科實業,129.6,0.93,tencent
+20260716,0823.HK,HK00823,領展房產基金,38.78,0.73,tencent
+20260716,0883.HK,HK00883,中國海洋石油,22.88,-0.09,tencent
+20260716,0941.HK,HK00941,中國移動,79.6,0.76,tencent
+20260716,2388.HK,HK02388,中銀香港,46.68,-0.09,tencent
+20260716,2800.HK,HK02800,盈富基金,25.46,1.43,tencent
+20260716,3466.HK,HK03466,香港高息股ETF,19.74,1.23,tencent
+20260716,3988.HK,HK03988,中國銀行,5.1,1.19,tencent
+20260716,6823.HK,HK06823,香港電訊,12.19,0.74,tencent
+20260716,JPM,USJPM,摩根大通,346.91,1.17,tencent
+20260716,ABBV,USABBV,艾伯維,244.11,0.44,tencent
+20260716,CVX,USCVX,雪佛龍,181.6,-0.09,tencent
+20260716,O,USO,Realty Income,63.26,-0.8,tencent
+20260716,VZ,USVZ,Verizon,42.83,0.85,tencent
