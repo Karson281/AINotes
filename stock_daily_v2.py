@@ -255,15 +255,15 @@ def compute_rating(indicators, region, stock_type="neutral"):
     if rsi_signal == "oversold" and ma_signal in ("strong_bull","weak_bull") and macd_sig in ("bullish","recovering"):
         return "建倉買入"
     
-    # Sell signals (defensive/income stocks: downgrade sell intensity)
+    # Sell signals
     if ma_signal == "strong_bear" and rsi_signal in ("overbought","near_overbought"):
-        return "減倉賣出" if is_defensive else "清倉賣出"
+        return "清倉賣出"
     if ma_signal in ("strong_bear","weak_bear") and rsi_signal in ("overbought","near_overbought"):
         return "減倉賣出" if not is_defensive else "密切觀察"
     if ma_signal == "strong_bear" and rsi_signal in ("neutral",):
         return "減倉賣出" if not is_defensive else "觀望"
     if rsi_signal == "overbought" and ma_signal in ("weak_bear","strong_bear"):
-        return "減倉賣出" if not is_defensive else "密切觀察"
+        return "減倉賣出"
     
     # Hold / watch
     if ma_signal == "strong_bull" and rsi_signal in ("near_overbought",):
