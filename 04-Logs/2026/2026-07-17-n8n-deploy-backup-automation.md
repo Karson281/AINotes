@@ -8,14 +8,14 @@
 
 ## 一、Backup/Restore 隔離驗證（全部通過）
 
-| Step | 工序 | 結果 |
-|------|------|------|
-| 1 | 手動執行 backup.sh | 348K .dump 成功 |
-| 2 | 查看 backup log | 無靜默失敗 |
-| 3 | restore-test.sh 隔離還原 | PASSED（獨立 container, --network none） |
-| 4 | 測試 container 自動清理 | production 未受影響 |
-| 5 | Windows offsite 副本 | D:\n8n-backups\ SCP pull 成功 |
-| 6 | 記錄結果 | 已建立恢復基準 |
+| Step | 工序                   | 結果                                   |
+| ---- | -------------------- | ------------------------------------ |
+| 1    | 手動執行 backup.sh       | 348K .dump 成功                        |
+| 2    | 查看 backup log        | 無靜默失敗                                |
+| 3    | restore-test.sh 隔離還原 | PASSED（獨立 container, --network none） |
+| 4    | 測試 container 自動清理    | production 未受影響                      |
+| 5    | Windows offsite 副本   | D:\n8n-backups\ SCP pull 成功          |
+| 6    | 記錄結果                 | 已建立恢復基準                              |
 
 ## 二、n8n Workflow 遷移
 
