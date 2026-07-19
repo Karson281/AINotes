@@ -44,3 +44,6 @@ notepad C:\Users\kaisu\OneDrive\AINotes\.scripts\polling.log
 ```bash
 python3 C:/Users/kaisu/OneDrive/AINotes/.scripts/vault-polling.py
 ```
+
+## 備註
+- 改由 n8n 自動執行
