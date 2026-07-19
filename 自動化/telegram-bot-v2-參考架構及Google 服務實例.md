@@ -6,7 +6,7 @@ updated: 2026-06-24
 status: active
 ---
 
-# Telegram Bot v2 完整參考手冊
+# Telegram Bot v2 完整參考架構
 
 > Proma Telegram Bot — 24/7 VPS 運作，自帶 watchlist + 每日 18:00 自動分析 + Google 整合
 
