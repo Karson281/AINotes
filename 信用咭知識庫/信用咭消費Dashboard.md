@@ -9,8 +9,8 @@ const _container = dv.container;
 
 (() => {
 // === 用戶輸入（修改呢度） ===
-const amount    = 5000;
-const spendMode = "本地簽帳";   // 本地簽帳 | 外地簽帳 | 內地簽帳 | 台灣簽帳 | 本地網購 | 外幣網購
+const amount    = 1000;
+const spendMode = "內地簽帳";   // 本地簽帳 | 外地簽帳 | 內地簽帳 | 台灣簽帳 | 本地網購 | 外幣網購
 const location  = "香港";       // 香港 | 中國 | 澳門 | 台灣 | 日本 | 其他外地
 const merchant  = "";           // 商戶名（可選，留空 = 唔指定）
 const payMethod = "";           // GPay | BOC Pay | 雲閃付 | 手機二維碼 | 實咭（可選）
