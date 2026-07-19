@@ -1,5 +1,5 @@
 ---
-prefix: 成功
+prefix: 成功-〉停用
 status: completed
 created: 2026-06-20
 ---

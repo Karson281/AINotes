@@ -1,5 +1,5 @@
 ---
-prefix: 有待跟進
+prefix: 停用
 status: pending
 created: 2026-06-20
 ---
