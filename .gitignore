@@ -1,4 +1,6 @@
 .obsidian/
+
+# 圖片／媒體
 *.png
 *.jpg
 *.jpeg
@@ -6,8 +8,20 @@
 *.pdf
 *.mp4
 *.mov
+
+# 依賴／快取
 node_modules/
+__pycache__/
+*.pyc
+
+# 暫存檔案
 .tmp.driveupload/
+.tmp.drivedownload/
+_debug_*
+*.bak
+*.ffs_db
+*.ffs_gui
+*.ffs_real
 
 # 🔒 機密檔案 — 永不 commit
 google-token.json
