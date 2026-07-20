@@ -1,9 +1,14 @@
 ---
 created: 2026-07-03
-tags: [google, oauth, credentials, reference]
+tags:
+  - google
+  - oauth
+  - credentials
+  - reference
+updated: 2026-07-03
 ---
 
-# Google OAuth 2.0 Credentials Reference
+# 2027-07-03-Google OAuth 2.0 Credentials Reference
 
 ## My Project 68208 (`consummate-rush-500205-r2`)
 
