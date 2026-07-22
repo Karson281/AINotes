@@ -257,7 +257,7 @@ def compute_rating(indicators, region, stock_type="neutral"):
     
     # Sell signals
     if ma_signal == "strong_bear" and rsi_signal in ("overbought","near_overbought"):
-        return "清倉賣出"
+        return "密切觀察" if is_defensive else "清倉賣出"
     if ma_signal in ("strong_bear","weak_bear") and rsi_signal in ("overbought","near_overbought"):
         return "減倉賣出" if not is_defensive else "密切觀察"
     if ma_signal == "strong_bear" and rsi_signal in ("neutral",):
